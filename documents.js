@@ -72,19 +72,20 @@ function officeFile(format,rows) {
 function commercialRows(order,quote,contract=null) {
   const amounts=salesAmounts(quote.items,quote.discount,quote.tax);
   const rows=[[contract?"HỢP ĐỒNG MUA BÁN / DỊCH VỤ":"BÁO GIÁ",contract?.id||quote.id],
-    ["Bản minh họa",contract?.final?"Bản cuối mẫu":"Mẫu nghiệp vụ"],["Mã đơn hàng",order.id],
-    ["Bên bán",companyName(order.company)],["Khách hàng",order.customer]];
-  if (contract) rows.push(["Đại diện bên bán",contract.seller],["Đại diện bên mua",contract.buyer],
+    ["Bản minh họa",contract?.final?"Bản cuối mẫu":"Mẫu nghiệp vụ"]];
+  if(contract || quoteIdentity(order,quote).mode!=="anonymous") rows.push(["Mã đơn hàng",order.id]);
+  if (contract) rows.push(["Bên bán",companyName(order.company)],["Khách hàng",order.customer],["Đại diện bên bán",contract.seller],["Đại diện bên mua",contract.buyer],
     ["Địa chỉ bên bán",contract.sellerAddress],["Địa chỉ bên mua",contract.buyerAddress],
     ["Mã số thuế bên bán",contract.sellerTax],["Mã số thuế bên mua",contract.buyerTax],
     ["Báo giá nguồn",quote.id],["Phạm vi",contract.scope],
     ["Giao nhận và nghiệm thu",contract.delivery],["Thanh toán",contract.payment],
     ["Bảo hành",contract.warranty],["Hiệu lực",contract.effect]);
-  else rows.push(["Hiệu lực báo giá",date(quote.validUntil)],["Điều kiện báo giá",quote.terms||""]);
+  else rows.push(...quotePartyRows(order,quote),["Hiệu lực báo giá",date(quote.validUntil)],["Điều kiện báo giá",quote.terms||""]);
   rows.push([],["Hạng mục","ĐVT","SL","Giá chưa VAT (₫)","VAT (%)","Giá tính thuế (₫)","Tiền VAT (₫)","Tổng dòng (₫)"]);
   for (const item of amounts.lines) rows.push([item.name,item.unit,item.qty,item.price,item.vat??"",item.base,item.tax,item.total]);
   rows.push([],["Tạm tính (₫)",amounts.subtotal],["Chiết khấu (₫)",amounts.discount],["Tiền VAT (₫)",amounts.tax],["Tổng cộng (₫)",amounts.total]);
-  if (contract) rows.push([],["Đại diện bên bán ký"],["Đại diện bên mua ký"]);
+  if (contract) rows.push([],["Đại diện bên bán ký","Đại diện bên mua ký"]);
+  else rows.push([],["Người lập báo giá","Người duyệt báo giá"],["Ký, ghi rõ họ tên","Ký, ghi rõ họ tên"],[],[]);
   return rows;
 }
 function commercialHtml(order,quote,contract) {
@@ -99,7 +100,7 @@ function commercialHtml(order,quote,contract) {
   <section class="facts">${fields(rest.slice(0,start-1))}</section>
   <table><thead><tr>${rows[start].map(v=>`<th>${esc(v)}</th>`).join("")}</tr></thead><tbody>${rows.slice(start+1,end).map(row=>`<tr>${row.map(v=>`<td>${esc(typeof v==="number"?number.format(v):v)}</td>`).join("")}</tr>`).join("")}</tbody></table>
   <section class="facts totals">${fields(rows.slice(end+1,end+5))}</section>
-  ${contract?'<div class="sign"><b>Đại diện bên bán</b><b>Đại diện bên mua</b></div>':""}</html>`;
+  ${contract?'<div class="sign"><b>Đại diện bên bán</b><b>Đại diện bên mua</b></div>':quoteSignature()}</html>`;
 }
 function documentContext() {
   const order=secureOrder(selected.order);

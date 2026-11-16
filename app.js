@@ -381,8 +381,12 @@ function documentDetails(order, item, bundle) {
   ] };
 }
 function documentMarkup(order, item, bundle) {
+  const source=bundle?.snapshot ?? order;
+  const quote = item[0]==="bao-gia" ? acceptedQuote(source) : null;
+  if(quote) return `<article class="preview-paper"><h3>Báo giá · ${esc(quote.id)}</h3>
+  ${quotePartyRows(source,quote).map(([label,value])=>`<p><strong>${esc(label)}</strong> · ${esc(value)}</p>`).join("")}
+  ${salesLines(quote.items,quote.discount)}${quoteSignature()}</article>`;
   const {title,rows} = documentDetails(order,item,bundle);
-  const quote = item[0]==="bao-gia" ? acceptedQuote(bundle?.snapshot ?? order) : null;
   return `<article class="preview-paper">${chip("BẢN MẪU · DỮ LIỆU GIẢ ĐỊNH","warn")}<h3>${esc(title)}</h3>
   <hr class="rule">${rows.map(([label,value])=>`<p><strong>${esc(label)}</strong> · ${esc(value)}</p>`).join("")}${quote?salesLines(quote.items):""}</article>`;
 }
@@ -649,7 +653,7 @@ function newOrder() {
   if (session?.area!=="company") return;
   openDialog("Lập đơn hàng",`<form id="create-order"><p>Sử dụng thông tin minh họa để chạy thử quy trình.</p><div class="form-grid">
     <label class="field">Tên đơn hàng<input class="input" name="title" maxlength="100" placeholder="VD: Lắp đặt bảng hiệu khu A" required></label>
-    <label class="field">Khách hàng<input class="input" name="customer" maxlength="70" placeholder="Tên khách hàng mẫu" required></label>
+    ${quoteIdentityFields({mode:"named"})}
     <label class="field">Đầu mối liên hệ<input class="input" name="contact" maxlength="90" placeholder="Tên hoặc số liên hệ mẫu"></label>
     <label class="field">Địa điểm giao<input class="input" name="deliveryAddress" maxlength="150" placeholder="Địa điểm giao mẫu"></label>
     <label class="field">Loại đơn<select class="input" name="track">${Object.entries(tracks).map(([key,v])=>`<option value="${key}" ${key==="direct"?"selected":""}>${v.label}</option>`).join("")}</select></label>
@@ -658,7 +662,9 @@ function newOrder() {
     ${lineEditor([undefined])}<p class="muted">Chọn VAT theo từng hạng mục và điều kiện áp dụng.</p><div class="sales-grand"><span>Tổng dự kiến gồm VAT</span><output data-sales-total></output></div>
     <p class="error" id="dialog-error" aria-live="polite"></p><div class="actions"><button class="btn light" type="submit" name="intent" value="order">Lưu đơn hàng</button>
     <button class="btn" type="submit" name="intent" value="quote">Lưu và lập báo giá</button></div></form>`);
-  refreshSalesForm(modal.querySelector("#create-order"));
+  const form=modal.querySelector("#create-order");
+  syncQuoteIdentity(form);
+  refreshSalesForm(form);
 }
 function advanceDialog(order) {
   if (!canWork(order) || order.paused || order.step>=11 || order.step===3) return;
@@ -685,20 +691,21 @@ function fieldError(id, message) {
 function createOrder(form,intent) {
   if (session?.area!=="company") return;
   const title = String(form.get("title")).trim();
-  const customer = String(form.get("customer")).trim();
+  const identity=readQuoteIdentity(form);
+  const customer=identity?.business||identity?.customer||"Khách chưa định danh";
   const type = form.get("track");
   const items=readSalesLines(form);
   const total=salesAmounts(items).total;
   const batches = Number(form.get("batches"));
-  if (!title || !customer || !Object.hasOwn(tracks,type) || !validSalesLines(items) || total<1 || total>maxSalesValue ||
+  if (!title || !identity || !Object.hasOwn(tracks,type) || !validSalesLines(items) || total<1 || total>maxSalesValue ||
       !Number.isInteger(batches) || batches<1 || batches>10) {
     fieldError("dialog-error","Kiểm tra tên, giá trị và số đợt giao.");
     return;
   }
   const id = session.company + "-M" + String(Date.now()).slice(-9) + "-" + crypto.randomUUID().slice(0,4).toUpperCase();
-  const contact=String(form.get("contact")||"").trim();
-  const deliveryAddress=String(form.get("deliveryAddress")||"").trim();
-  data.orders.unshift({id,company:session.company,title,customer,contact,deliveryAddress,type,items,total,batches,due:form.get("due"),step:0,paid:0,
+  const contact=String(form.get("contact")||identity.person||"").trim();
+  const deliveryAddress=String(form.get("deliveryAddress")||identity.address||"").trim();
+  data.orders.unshift({id,company:session.company,title,customer,quoteIdentity:identity,contact,deliveryAddress,type,items,total,batches,due:form.get("due"),step:0,paid:0,
     delivered:0,deposit:Math.round(total*.3),retention:0,records:{},history:[log("Đã tạo hồ sơ đơn hàng")]});
   selected.order=id;selected.stage=null;selected.quote=null;
   modal.close(); save(); show(intent==="quote"?"quote":"detail"); notify("Đã lưu đơn hàng.");
@@ -870,6 +877,11 @@ document.addEventListener("input",(event)=>{
   if (form && ["line-qty","line-price","line-vat","discount"].includes(event.target.name)) refreshSalesForm(form);
 });
 document.addEventListener("change",(event)=>{
+  if (["quote-mode","customer-kind"].includes(event.target.name)) {
+    const form=event.target.closest("#create-order, #quote-form");
+    if(form) syncQuoteIdentity(form);
+    return;
+  }
   const {id,value}=event.target;
   if (id==="board-company" && session?.area==="board" && (value==="all"||companies[value])) selected.company=value;
   else if (id==="account-order" && canAccount(secureOrder(value))) selected.order=value;

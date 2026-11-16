@@ -14,6 +14,57 @@ const maxSalesValue = 100000000000;
 const vatRates=[0,5,8,10];
 const vatOptions=(rate)=>vatRates.map(value=>`<option value="${value}" ${rate===value?"selected":""}>${value}%</option>`).join("");
 const draftLinesFor = (order) => order.items?.length ? order.items : [{name:order.title,unit:"Gói",qty:1,price:order.total}];
+const quoteIdentity=(order,quote)=>quote?.identity || order.quoteIdentity || {
+  mode:"named",kind:"retail",customer:order.customer,person:order.contact,address:order.deliveryAddress,
+};
+function quoteIdentityFields(identity={}) {
+  const field=(label,key,limit=120,type="text",required=false)=>`<label class="field">${label}<input class="input" name="${key}" type="${type}" maxlength="${limit}" value="${esc(identity[key])}" ${required?'data-needed="yes"':""}></label>`;
+  return `<div class="form-grid identity-editor">
+  <label class="field wide">Loại phiếu báo giá<select class="input" name="quote-mode">
+    <option value="anonymous" ${identity.mode==="anonymous"?"selected":""}>Loại 1 · Không hiển thị tên hai bên</option>
+    <option value="named" ${identity.mode!=="anonymous"?"selected":""}>Loại 2 · Có thông tin bên bán và khách hàng</option>
+  </select></label>
+  <div class="wide identity-block form-grid" data-identity="named">
+    <label class="field wide">Loại khách hàng<select class="input" name="customer-kind"><option value="retail">Khách lẻ</option><option value="business" ${identity.kind==="business"?"selected":""}>Doanh nghiệp</option></select></label>
+    <div class="wide identity-block form-grid" data-identity="retail">${field("Họ tên khách hàng","customer",100,"text",true)}</div>
+    <div class="wide identity-block form-grid" data-identity="business">${field("Tên công ty khách hàng","business",160,"text",true)}${field("Mã số thuế khách hàng","taxId",24,"text",true)}${field("Người đặt hàng","person",100,"text",true)}</div>
+    ${field("Địa chỉ khách hàng","address",180,"text",true)}${field("Số điện thoại","phone",30,"tel",true)}${field("Email","email",150,"email",true)}
+    ${field("Địa chỉ bên bán","sellerAddress",180)}${field("Mã số thuế bên bán","sellerTax",24)}${field("Điện thoại bên bán","sellerPhone",30,"tel")}${field("Email bên bán","sellerEmail",150,"email")}
+  </div></div>`;
+}
+function syncQuoteIdentity(form) {
+  const named=form.elements["quote-mode"].value==="named";
+  const business=form.elements["customer-kind"].value==="business";
+  for(const block of form.querySelectorAll("[data-identity]")) {
+    const key=block.dataset.identity;
+    block.hidden=!(named&&(key==="named"||(key==="business"?business:!business)));
+  }
+  for(const input of form.querySelectorAll(".identity-editor input")) {
+    input.disabled=!!input.closest("[hidden]");
+    input.required=!input.disabled&&input.dataset.needed==="yes"&&(business||input.name==="customer");
+  }
+}
+function readQuoteIdentity(form) {
+  if(form.get("quote-mode")==="anonymous") return {mode:"anonymous"};
+  const get=key=>String(form.get(key)||"").trim();
+  const kind=get("customer-kind")==="business"?"business":"retail";
+  const keys=["address","phone","email","sellerAddress","sellerTax","sellerPhone","sellerEmail",...(kind==="business"?["business","taxId","person"]:["customer"])];
+  const identity={mode:"named",kind,...Object.fromEntries(keys.map(key=>[key,get(key)]))};
+  if(kind==="business"?!["business","taxId","person","address","phone","email"].every(key=>identity[key]):!identity.customer) return null;
+  return identity;
+}
+function quotePartyRows(order,quote) {
+  const identity=quoteIdentity(order,quote);
+  if(identity.mode==="anonymous") return [];
+  return [["Bên bán",companyName(order.company)],["Địa chỉ bên bán",identity.sellerAddress],["Mã số thuế bên bán",identity.sellerTax],
+    ["Điện thoại bên bán",identity.sellerPhone],["Email bên bán",identity.sellerEmail],["Loại khách hàng",identity.kind==="business"?"Doanh nghiệp":"Khách lẻ"],
+    [identity.kind==="business"?"Công ty khách hàng":"Khách hàng",identity.kind==="business"?identity.business:identity.customer],
+    ["Mã số thuế khách hàng",identity.taxId],["Người đặt hàng",identity.person],["Địa chỉ khách hàng",identity.address],
+    ["Điện thoại khách hàng",identity.phone],["Email khách hàng",identity.email]].filter(([,value])=>value);
+}
+function quoteSignature() {
+  return '<div class="sign"><div><b>Người lập báo giá</b><small>Ký, ghi rõ họ tên</small></div><div><b>Người duyệt báo giá</b><small>Ký, ghi rõ họ tên</small></div></div>';
+}
 
 function salesAmounts(items,discount=0,tax=0) {
   const raw=items.map(item=>Math.round(item.qty*item.price));
@@ -115,12 +166,12 @@ function quotePage() {
   if (canApprove && current && quote.status==="sent") actions.push(btn("Ghi nhận khách chấp thuận","quote-transition",{value:"accepted",icon:"check"}));
   if (editable && current && ["approved","sent"].includes(quote.status)) actions.push(btn("Tạo phiên bản mới","edit-quote",{value:"revise",style:"light"}));
   if (quote && quote.status!=="draft") actions.push(btn("Tải bản báo giá","download-quote",{value:quote.id,style:"light",icon:"down"}));
-  const quoteBody=quote?`<div class="quote-sheet-head"><div><div class="kicker">Công ty ${companyName(order.company)}</div><h2>${esc(quote.id)}</h2></div>
+  const quoteBody=quote?`<div class="quote-sheet-head"><div><div class="kicker">${quoteIdentity(order,quote).mode==="anonymous"?"Phiếu báo giá":"Công ty "+companyName(order.company)}</div><h2>${esc(quote.id)}</h2></div>
   ${chip(quoteLabel(quote.status))}</div>
-  <div class="quote-facts"><div><small>Khách hàng</small><strong>${esc(order.customer)}</strong></div><div><small>Hiệu lực đến</small><strong>${date(quote.validUntil)}</strong></div>${quote.terms?`<div><small>Điều kiện báo giá</small><strong>${esc(quote.terms)}</strong></div>`:""}</div>
+  <div class="quote-facts">${quotePartyRows(order,quote).map(([label,value])=>`<div><small>${esc(label)}</small><strong>${esc(value)}</strong></div>`).join("")}<div><small>Hiệu lực đến</small><strong>${date(quote.validUntil)}</strong></div>${quote.terms?`<div><small>Điều kiện báo giá</small><strong>${esc(quote.terms)}</strong></div>`:""}</div>
   ${salesLines(quote.items,quote.discount)}
   <dl class="quote-totals"><div><dt>Tạm tính</dt><dd>${money(amounts.subtotal)}</dd></div><div><dt>Chiết khấu</dt><dd>${money(amounts.discount)}</dd></div><div><dt>Tiền VAT</dt><dd>${money(amounts.tax)}</dd></div>
-  <div class="grand"><dt>Tổng báo giá</dt><dd>${money(amounts.total)}</dd></div></dl>`
+  <div class="grand"><dt>Tổng báo giá</dt><dd>${money(amounts.total)}</dd></div></dl>${quoteSignature()}`
     : `<p class="muted">${editable?"Lập báo giá từ các hạng mục của đơn hàng.":"Hồ sơ này chưa có báo giá chi tiết trong dữ liệu minh họa."}</p>`;
   return heading("Báo giá đơn hàng",`${esc(order.id)} · ${esc(order.title)}`,
     linkBtn("Danh sách báo giá",root+"/bao-gia",{icon:"back"})+linkBtn("Mở đơn hàng",orderRoute(order),{icon:"link"}))+
@@ -140,14 +191,16 @@ function editQuote(revise) {
   if (quote && (revise ? !["approved","sent"].includes(quote.status) : quote.status!=="draft")) return;
   const values=quote||{items:draftLinesFor(order),discount:0,tax:0,validUntil:dayInVietnam(new Date(Date.now()+15*86400000)),terms:""};
   openDialog(revise?"Lập phiên bản báo giá mới":quote?"Sửa báo giá":"Lập báo giá",`<form id="quote-form" data-order="${esc(order.id)}" data-current="${esc(quote?.id)}" data-revise="${revise?"yes":"no"}">
-    <p>${esc(order.id)} · ${esc(order.customer)}</p>
+    <p>${esc(order.id)}</p>${quoteIdentityFields(quoteIdentity(order,quote))}
     ${lineEditor(values.items)}
     <div class="form-grid"><label class="field">Chiết khấu (₫)<input class="input" type="number" name="discount" min="0" max="${maxSalesValue}" step="1" value="${values.discount}" required></label>
     <label class="field">Hiệu lực đến<input class="input" type="date" name="validUntil" min="${dayInVietnam()}" value="${values.validUntil}" required></label>
     <label class="field">Điều kiện báo giá<input class="input" name="terms" maxlength="180" placeholder="Giao hàng hoặc thanh toán" value="${esc(values.terms)}"></label></div>
     <div class="sales-grand"><span>Tổng báo giá</span><output data-sales-total></output></div>
     <p class="error" id="dialog-error" aria-live="polite"></p><div class="actions"><button class="btn" type="submit">Lưu báo giá nháp</button></div></form>`);
-  refreshSalesForm(modal.querySelector("#quote-form"));
+  const form=modal.querySelector("#quote-form");
+  syncQuoteIdentity(form);
+  refreshSalesForm(form);
 }
 function saveQuote(form,el) {
   const order=secureOrder(el.dataset.order);
@@ -156,6 +209,8 @@ function saveQuote(form,el) {
   const revise=el.dataset.revise==="yes";
   if ((previous?.id||"")!==el.dataset.current || (previous && (revise ? !["approved","sent"].includes(previous.status) : previous.status!=="draft"))) return;
   const items=readSalesLines(form);
+  const identity=readQuoteIdentity(form);
+  if(!identity) {fieldError("dialog-error","Điền đủ thông tin khách hàng cho loại phiếu đã chọn.");return;}
   const discount=Number(form.get("discount"));
   const amounts=salesAmounts(items,discount);
   const tax=amounts.tax;
@@ -169,7 +224,7 @@ function saveQuote(form,el) {
   }
   order.quotes ||= [];
   const updatedAt=new Date().toISOString();
-  const values={items,discount,tax,validUntil,updatedAt,terms:String(form.get("terms")||"").trim()};
+  const values={items,discount,tax,identity,validUntil,updatedAt,terms:String(form.get("terms")||"").trim()};
   if (previous && !revise) Object.assign(previous,values);
   else {
     if (previous) { previous.status="superseded"; previous.updatedAt=updatedAt; }
@@ -212,6 +267,8 @@ function transitionQuote(status,id,form) {
   (quote.history ||= []).push(log(rule.title+(reference?" · "+reference:"")));
   order.history.push(log(rule.title+" · "+quote.id+(reference?" · "+reference:"")));
   if (status==="accepted") {
+    const identity=quoteIdentity(order,quote);
+    if(identity.mode==="named") order.customer=identity.business||identity.customer;
     order.total=salesAmounts(quote.items,quote.discount,quote.tax).total;
     order.items=quote.items.map(item=>({...item}));
     order.deposit=Math.round(order.total*.3);
@@ -221,18 +278,8 @@ function transitionQuote(status,id,form) {
   modal.close(); save(); render();
   notify(status==="accepted"?"Đơn hàng đã chuyển sang bước Hợp đồng.":quoteLabel(status)+".");
 }
-function quoteFile(order,quote) {
-  const amounts=salesAmounts(quote.items,quote.discount,quote.tax);
-  return `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(quote.id)}</title>
-  <style>body{margin:40px auto;padding:0 18px;max-width:860px;font:14px/1.55 Arial,sans-serif;color:#192b25}header{border-top:5px solid #1d624e;padding-top:14px}h1{margin:8px 0}.demo{color:#85582c;font-weight:bold;font-size:11px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #d9e6de;text-align:left}th{background:#eaf2e9}.text-right{text-align:right}dl{width:min(300px,100%);margin-left:auto}dl div{display:flex;justify-content:space-between;border-bottom:1px solid #d9e6de;padding:5px}dd{margin:0}footer{margin-top:24px} @media print{body{margin:0}}</style>
-  <header><div>Công ty ${esc(companyName(order.company))}</div><div class="demo">BẢN MẪU · DỮ LIỆU GIẢ ĐỊNH</div><h1>Báo giá</h1><strong>${esc(quote.id)}</strong></header>
-  <p>Khách hàng <strong>${esc(order.customer)}</strong> · Đơn hàng <strong>${esc(order.id)}</strong></p><p>Hiệu lực đến ${date(quote.validUntil)}</p>
-  ${salesLines(quote.items,quote.discount)}<dl><div><dt>Tạm tính</dt><dd>${money(amounts.subtotal)}</dd></div><div><dt>Chiết khấu</dt><dd>${money(amounts.discount)}</dd></div>
-  <div><dt>Tiền VAT</dt><dd>${money(amounts.tax)}</dd></div><div><dt><strong>Tổng báo giá</strong></dt><dd><strong>${money(amounts.total)}</strong></dd></div></dl>
-  ${quote.terms?`<p>Điều kiện báo giá: ${esc(quote.terms)}</p>`:""}<footer>Hồ sơ minh họa. Có thể in hoặc lưu PDF từ trình duyệt.</footer></html>`;
-}
 function downloadQuote(id) {
   const order=secureOrder(selected.order);
   const quote=canWork(order) && order.quotes?.find((item)=>item.id===id);
-  if (quote && quote.status!=="draft") triggerDownload(new Blob([quoteFile(order,quote)],{type:"text/html;charset=utf-8"}),quote.id+".html");
+  if (quote && quote.status!=="draft") triggerDownload(new Blob([commercialHtml(order,quote)],{type:"text/html;charset=utf-8"}),quote.id+".html");
 }
