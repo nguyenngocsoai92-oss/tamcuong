@@ -70,7 +70,7 @@ const companyRoute = (id) => "cong-ty/" + id;
 const orderRoute = (o, board = false) => (board ? "hdqt" : companyRoute(o.company)) + "/ho-so/" + encodeURIComponent(o.id);
 const packRoute = (o, kind = "sales") => "ke-toan/" + o.company + "/ho-so/" + encodeURIComponent(o.id) + "/" + (kind==="sales" ? "ban-hang" : "mua-hang");
 const viewSlug = {
-  dashboard:"tong-quan", orders:"ho-so", process:"quy-trinh", pi:"bao-cao",
+  dashboard:"tong-quan", orders:"ho-so", process:"quy-trinh", kpi:"bao-cao",
   partners:"doi-tac", inventory:"mua-hang-kho", finance:"tai-chinh",
   people:"nhan-su", admin:"quan-tri", reminders:"nhac-viec", feedback:"gop-y",
 };
@@ -137,8 +137,8 @@ function navItem(id, label, graphic) {
 }
 function workspace(body) {
   let nav = "";
-  if (session?.area === "board") nav = navItem("dashboard","Báo cáo điều hành","board") + navItem("orders","Đơn hàng","box") + navItem("pi","Báo cáo và Cây PI","grid");
-  if (session?.area === "company") nav = navItem("dashboard","Tổng quan","board") + navItem("orders","Đơn hàng và dự án","box") + navItem("process","Quy trình nghiệp vụ","steps") + Object.entries(modules).map(([id, entry]) => navItem(id,entry.name,entry.icon)).join("") + navItem("pi","Báo cáo và Cây PI","grid");
+  if (session?.area === "board") nav = navItem("dashboard","Báo cáo điều hành","board") + navItem("orders","Đơn hàng","box") + navItem("kpi","Báo cáo và KPI","grid");
+  if (session?.area === "company") nav = navItem("dashboard","Tổng quan","board") + navItem("orders","Đơn hàng và dự án","box") + navItem("process","Quy trình nghiệp vụ","steps") + Object.entries(modules).map(([id, entry]) => navItem(id,entry.name,entry.icon)).join("") + navItem("kpi","Báo cáo và KPI","grid");
   if (session?.area === "accounting") nav = navItem("accounting","Hồ sơ chứng từ","doc");
   return `<div class="workspace"><nav class="side" aria-label="Khu làm việc"><p>${session?.account || "Bản demo"}</p>${nav}${navItem("feedback","Góp ý & xác nhận","message")}</nav><main class="work" id="content">${body}${savedLocally ? "" : '<p class="notice warn">Trình duyệt đang chặn lưu dữ liệu. Thay đổi chỉ tồn tại trong phiên mở này.</p>'}</main></div>`;
 }
@@ -246,12 +246,11 @@ function modulePage(key) {
       return `<tr><td><strong>${name}</strong></td><td>${info}</td><td>${owner}</td><td>${chip(latest?.status || status, (latest?.status || status).startsWith("Đã")?"":"warn")}${latest ? `<small>${when(latest.at)}</small>` : ""}</td><td>${btn("Xác nhận","check-module",{value:i,style:"light compact",disabled:!!latest || status.startsWith("Đã")})}</td></tr>`;
     })),"Có thể xác nhận một dòng để xem cách ghi nhận trạng thái.");
 }
-function piPage() {
+function kpiPage() {
   const orders = listOrders(selected.company);
   const delivered = orders.filter((o)=>o.delivered===o.batches);
   const groups = [...new Set(orders.map(o=>o.customer))];
-  return heading("Báo cáo và Cây PI","Các chỉ số minh họa để khách hàng xác nhận định nghĩa và người được xem.",orgPicker())+
-    `<div class="notice">“Cây PI” đang chờ xác nhận ý nghĩa, cấu trúc theo đối tác hoặc nhân viên và cách tính.</div>`+
+  return heading("Báo cáo và KPI","Báo cáo quản trị và chỉ số hiệu suất (KPI) theo phạm vi công ty.",orgPicker())+
     section("Báo cáo quản trị theo khách hàng",table(["Khách hàng","Số hồ sơ","Giá trị hợp đồng","Còn phải thu"],groups.map((name)=>{
       const subset=orders.filter((o)=>o.customer===name);
       return `<tr><td>${esc(name)}</td><td>${subset.length}</td><td>${money(totalValue(subset))}</td><td>${money(subset.reduce((n,o)=>n+openBalance(o),0))}</td></tr>`;
@@ -263,7 +262,7 @@ function piPage() {
           .filter((bundle)=>bundle?.status==="approved").map((bundle)=>bundle.snapshot);
         return `<tr><td>${companyName(id)}</td><td>Nhà cung cấp mẫu A</td><td>${snapshots.length}</td><td>${money(snapshots.reduce((sum,o)=>sum+Math.round(o.total*.38),0))}</td></tr>`;
       })),"Hiển thị theo bộ mua mẫu đã duyệt.")+
-    section("Chỉ tiêu bàn giao minh họa",`<div class="panel-pad muted">Hồ sơ đã giao đủ đợt trên số hồ sơ đã ký hợp đồng: <strong>${delivered.length}/${orders.filter(o=>o.step>=5).length}</strong>.</div>`);
+    section("KPI bàn giao minh họa",`<div class="panel-pad muted">Hồ sơ đã giao đủ đợt trên số hồ sơ đã ký hợp đồng: <strong>${delivered.length}/${orders.filter(o=>o.step>=5).length}</strong>.</div>`);
 }
 
 function packKey(order, kind) { return order.company + ":" + order.id + ":" + kind; }
@@ -543,7 +542,7 @@ function render() {
   else if (view==="detail" && session.area!=="accounting") body=detail();
   else if (view==="process" && session.area==="company") body=processPage();
   else if (view==="accounting" && session.area==="accounting") body=accountingPage();
-  else if (view==="pi" && session.area!=="accounting") body=piPage();
+  else if (view==="kpi" && session.area!=="accounting") body=kpiPage();
   else if (session.area==="company" && Object.hasOwn(modules,view)) body=modulePage(view);
   else { show(session.area==="accounting"?"accounting":"dashboard"); return; }
   app.innerHTML=header()+workspace(body);
@@ -606,7 +605,7 @@ function openRoute(target) {
     if (target.order===undefined || !target.order) selected.order=null;
     selected.kind=target.kind || "sales";
   }
-  const allowed=target.area==="board"?["dashboard","orders","pi"]:["dashboard","orders","process","pi",...Object.keys(modules)];
+  const allowed=target.area==="board"?["dashboard","orders","kpi"]:["dashboard","orders","process","kpi",...Object.keys(modules)];
   show(target.area==="accounting"?"accounting":allowed.includes(target.view)?target.view:"dashboard");
 }
 function log(label,actor=session?.account||"Người dùng demo") { return {label,actor,at:new Date().toISOString()}; }

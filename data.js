@@ -113,7 +113,7 @@ const DEMO = (() => {
     ["Q05","Tạm ứng và triển khai","Mức ứng bao nhiêu thì được mở việc? Ai duyệt đơn gấp, bỏ bước hoặc phát sinh sau ký?"],
     ["Q06","Kho và giao từng đợt","Có dùng chung kho, điều chuyển nội bộ hoặc giao và nghiệm thu theo đợt? Ai ký nhận?"],
     ["Q07","Công nợ và bảo hành","Mốc nào phát sinh phải thu? “Nợ bảo hành” là tiền giữ lại, nghĩa vụ bảo hành hay cả hai?"],
-    ["Q08","Cây PI và nhắc việc","Cây PI đang theo dõi điều gì? Mục “ZZZZZ” trong danh mục là loại nhắc nào?"],
+    ["Q08","KPI và nhắc việc","Cần theo dõi KPI nào theo đối tác hoặc nhân viên? Cách tính, kỳ đánh giá và mục tiêu từng KPI là gì? Mục “ZZZZZ” trong danh mục là loại nhắc nào?"],
     ["Q09","Dữ liệu và tài liệu gốc","Dữ liệu nào được nhập hoặc dùng chung? Cần lưu chứng từ, tệp ký và hồ sơ nhân sự theo chính sách nào?"],
   ];
   function initialState() {
