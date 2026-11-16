@@ -149,6 +149,8 @@ function contractPage() {
     linkBtn("Mở đơn hàng",orderRoute(order),{icon:"link"})+linkBtn("Mở báo giá",quoteRoute(order),{icon:"doc"}))+
     `<div class="pack-grid"><section class="panel panel-pad"><h2>${esc(contract?.id||"Lập hợp đồng từ báo giá")}</h2>
     ${contract?`<p class="notice">${contract.final?"Bản cuối mẫu đã khóa":"Bản nháp có thể sửa"}</p><dl>${Object.entries(contractFields).map(([key,label])=>`<dt><strong>${label}</strong></dt><dd class="muted">${esc(contract[key]||"—")}</dd>`).join("")}</dl>${commercialActions(contract.final)}`:""}
+    ${unidentified(order)?`<p class="notice warn">Gắn tên khách hàng trước khi khóa bản cuối.</p>${btn("Gắn khách hàng","link-customer",{style:"light"})}`:""}
+    ${contract?.final&&order.step===4&&!evidenceFor(order,"hop-dong")&&!order.paused?btn("Lưu hợp đồng đã ký","upload-source",{value:"hop-dong",style:"light",icon:"doc"}):""}
     ${!contract?.final&&!order.paused&&order.step===4?btn(contract?"Sửa bản nháp":"Lập hợp đồng","edit-contract",{icon:"doc"}):""}</section>
     <section class="panel panel-pad"><h2>Nguồn và lưu trữ</h2><ul class="sublist"><li>Báo giá được chấp thuận<small>${esc(quote.id)}</small></li>
     <li>Giá trị hợp đồng mẫu<small>${money(order.total)}</small></li><li>Lưu theo mã đơn hàng<small>${esc(order.id)}</small></li></ul></section></div>`;
@@ -166,6 +168,7 @@ function saveContract(form,el,intent) {
   if (!order||el.dataset.order!==order.id||!quote||order.step!==4||order.paused||contract?.final) return;
   const final=intent==="final";
   const fields=Object.fromEntries(Object.keys(contractFields).map(key=>[key,String(form.get(key)||"").trim()]));
+  if (final&&unidentified(order)) return fieldError("dialog-error","Gắn khách hàng trước khi khóa bản cuối.");
   if (Object.entries(fields).some(([key,value])=>!key.endsWith("Tax")&&!value) || (final&&!form.has("verify"))) {
     fieldError("dialog-error","Điền đủ nội dung. Xác nhận kiểm tra nếu khóa bản cuối.");return;
   }

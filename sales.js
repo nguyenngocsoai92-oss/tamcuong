@@ -271,7 +271,7 @@ function transitionQuote(status,id,form) {
     if(identity.mode==="named") order.customer=identity.business||identity.customer;
     order.total=salesAmounts(quote.items,quote.discount,quote.tax).total;
     order.items=quote.items.map(item=>({...item}));
-    order.deposit=Math.round(order.total*.3);
+    if (!isNewFlow(order)) order.deposit=Math.round(order.total*.3);
     (order.records ||= {})[3]={reference:quote.id,actor:session.account,at:quote.updatedAt};
     order.step=4;
   }

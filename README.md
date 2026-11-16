@@ -28,3 +28,7 @@ Mẫu xuất chưa có thông tin đăng ký và chữ ký thật. Kế toán ph
 Báo giá và hợp đồng có mẫu Excel, Word và mẫu in/lưu PDF. Bản hợp đồng cuối được khóa theo báo giá đã chấp thuận. Thư .eml kèm bản Word và Excel mở trong ứng dụng thư. Kho theo dõi giá nhập chưa VAT và giá gồm VAT theo công ty. Sổ lưu trữ trong khu kế toán tra cứu bộ đã duyệt theo mã đơn. Dữ liệu demo lưu trên trình duyệt.
 
 Khi lập đơn hoặc sửa báo giá nháp, chọn mẫu ẩn tên hai bên hoặc mẫu có thông tin bên bán, bên mua. Mẫu có thông tin hỗ trợ khách lẻ và doanh nghiệp. Với doanh nghiệp, điền tên công ty, mã số thuế, địa chỉ, người đặt hàng, điện thoại và email. Cả hai mẫu có chỗ ký của người lập và người duyệt báo giá.
+
+Đơn tạo từ bản v7 được kiểm tra chứng từ nguồn. Gắn khách hàng trước khi khóa hợp đồng. Lưu PDF hợp đồng đã ký mẫu và đặt mốc tạm ứng trước khi chuyển sang thu tiền. Ghi mỗi lần thu theo mã giao dịch. Kế toán duyệt dựa trên chứng từ nguồn và tải chính tệp PDF đã lưu trong bộ đã duyệt. PDF mẫu tối đa 200 KB mỗi tệp, phụ thuộc dung lượng trình duyệt. Đơn minh họa đời trước vẫn mở được.
+
+Trong Mua hàng và kho, lập phiếu nhập hoặc xuất trên hai vật tư có sẵn. Xuất kho cần gắn đơn và đủ tồn. Báo cáo nhà cung cấp lấy số phiếu và giá trị từ các lần nhập đã ghi. Bản demo chưa có máy chủ dùng chung, dịch vụ gửi thư thật, kết nối hóa đơn hoặc sổ kế toán.

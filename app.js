@@ -230,19 +230,20 @@ function detail() {
     ${stageContent(readStage)}${readStage.gate?`<p class="gate-line"><strong>Điều kiện chuyển bước</strong> ${esc(readStage.gate)}</p>`:""}
     ${previous?`<p class="gate-line"><strong>Đầu ra tiếp nhận từ bước trước</strong> ${esc(previous.reference)} ${btn("Xem bước trước","inspect-stage",{value:previousIndex,style:"quiet compact",icon:"back"})}</p>`:""}
     ${received?`<p class="gate-line"><strong>Hồ sơ đã ghi</strong> ${esc(received.reference)} · ${when(received.at)}</p>`:""}
-    ${inspected===8?`<p>Đã xác nhận ${o.delivered}/${o.batches} đợt bàn giao.</p>`:""}
+    ${inspected===8?`<p>Đã xác nhận ${o.delivered}/${o.batches} đợt bàn giao.</p>${o.deliveryLots?.length?`<ul class="sublist">${o.deliveryLots.map(lot=>`<li>${esc(lot.reference)} · ${esc(lot.recipient)}<small>${date(lot.day)} · ${esc(lot.scope)}</small></li>`).join("")}</ul>`:""}`:""}
     <div class="actions">
     ${active && inspected===o.step && o.step<11 ? (o.paused ? btn("Tiếp tục xử lý","resume",{value:o.id}) : (o.step===3 ? linkBtn("Xử lý báo giá",quoteRoute(o),{icon:"doc"}) : o.step===4&&acceptedQuote(o)&&!o.contract?.final ? linkBtn("Soạn hợp đồng",contractRoute(o),{icon:"doc"}) : btn(stage.action,"advance",{value:o.id,icon:"check"}))+btn("Tạm dừng","pause",{value:o.id,style:"light"})) : ""}
     ${active && readStage.link ? linkBtn(modules[readStage.link].name,root+"/"+viewSlug[readStage.link],{style:"light",icon:"arrow"}) : ""}</div>
     ${o.items?.length ? `<hr class="rule"><h2>Hạng mục đơn hàng</h2>${salesLines(o.items,acceptedQuote(o)?.discount||0)}${acceptedQuote(o)?`<p class="muted">Tổng đơn theo báo giá được chấp thuận.</p>`:""}` : ""}
     </section>
-    <div><section class="panel panel-pad related"><h2>Hồ sơ liên quan</h2><ul class="sublist">
+    <div>${operationPanels(o)}<section class="panel panel-pad related"><h2>Hồ sơ liên quan</h2><ul class="sublist">
     ${active ? `<li>${linkBtn("Báo giá của đơn",quoteRoute(o),{style:"quiet compact",icon:"doc"})}<small>${quoteLabel(latestQuote(o)?.status)}</small></li>` : ""}
     ${active && acceptedQuote(o) ? `<li>${linkBtn("Hợp đồng của đơn",contractRoute(o),{style:"quiet compact",icon:"doc"})}<small>${o.contract?.final?"Bản cuối":o.contract?"Bản nháp":"Chưa lập"}</small></li>`:""}
     ${Object.entries(packs).map(([key,pack])=>`<li>${linkBtn(pack.label,packRoute(o,key),{style:"quiet compact",icon:"link"})}<small>${packStatus(data.packs[packKey(o,key)]?.status)}</small></li>`).join("")}
     </ul></section>${o.deliveryAddress || o.contact ? `<section class="panel panel-pad"><h2>Thông tin giao hàng</h2><ul class="sublist">${o.contact?`<li>${esc(o.contact)}<small>Đầu mối liên hệ</small></li>`:""}${o.deliveryAddress?`<li>${esc(o.deliveryAddress)}<small>Địa điểm giao</small></li>`:""}</ul></section>`:""}<section class="panel panel-pad"><h2>Nhật ký nghiệp vụ</h2><ul class="sublist">${o.history.slice().reverse().slice(0,6).map((entry)=>`<li>${esc(entry.label)}<small>${esc(entry.actor)} · ${when(entry.at)}</small></li>`).join("")}</ul></section></div></div>`;
 }
 function modulePage(key) {
+  if(key==="inventory") return heading("Mua hàng và kho","Theo dõi giá nhập, số tồn và phiếu kho gắn với đơn hàng.")+inventoryPricing()+stockLedger();
   const module = modules[key];
   const entries = data.checklists[session.company + ":" + key] || {};
   return heading(module.name,"Danh sách mẫu theo phạm vi công ty.",linkBtn("Hồ sơ nghiệp vụ",companyRoute(session.company)+"/ho-so",{icon:"box"}))+
@@ -261,13 +262,16 @@ function kpiPage() {
       const subset=orders.filter((o)=>o.customer===name);
       return `<tr><td>${esc(name)}</td><td>${subset.length}</td><td>${money(totalValue(subset))}</td><td>${money(subset.reduce((n,o)=>n+openBalance(o),0))}</td></tr>`;
     })))+
-    section("Báo cáo quản trị theo nhà cung cấp",table(["Đơn vị","Nhà cung cấp","Số bộ mua đã duyệt","Tổng giá trị mua mẫu"],Object.keys(companies)
+    section("Báo cáo quản trị theo nhà cung cấp",table(["Đơn vị","Nhà cung cấp","Số phiếu nhập","Giá trị nhập chưa VAT"],Object.keys(companies)
       .filter((id)=>session.area==="board" ? selected.company==="all"||id===selected.company : id===session.company)
-      .map((id)=>{
-        const snapshots=orders.filter((o)=>o.company===id).map((o)=>data.packs[packKey(o,"buying")])
-          .filter((bundle)=>bundle?.status==="approved").map((bundle)=>bundle.snapshot);
-        return `<tr><td>${companyName(id)}</td><td>Nhà cung cấp mẫu A</td><td>${snapshots.length}</td><td>${money(snapshots.reduce((sum,o)=>sum+Math.round(o.total*.38),0))}</td></tr>`;
-      })),"Hiển thị theo bộ mua mẫu đã duyệt.")+
+      .flatMap(id=>{
+        const receipts=data.stockMoves?.filter(move=>move.company===id&&move.type==="in")||[];
+        const vendors=[...new Set(receipts.map(r=>r.party))];
+        return vendors.map(name=>{
+          const rows=receipts.filter(r=>r.party===name);
+          return `<tr><td>${companyName(id)}</td><td>${esc(name)}</td><td>${rows.length}</td><td>${money(rows.reduce((sum,row)=>sum+row.qty*row.price,0))}</td></tr>`;
+        });
+      })),"Tính từ phiếu nhập kho đã ghi trên trình duyệt.")+
     section("KPI bàn giao minh họa",`<div class="panel-pad muted">Hồ sơ đã giao đủ đợt trên số hồ sơ đã ký hợp đồng: <strong>${delivered.length}/${orders.filter(o=>o.step>=5).length}</strong>.</div>`);
 }
 
@@ -302,8 +306,14 @@ function accountingPage() {
       <select class="input" id="account-order">${list.map((item)=>`<option value="${esc(item.id)}" ${item.id===o.id?"selected":""}>${esc(item.id + " · " + item.title)}</option>`).join("")}</select></label>
     <label class="field">Loại bộ chứng từ<select class="input" id="pack-kind">${Object.entries(packs).map(([k,p])=>`<option value="${k}" ${k===kind?"selected":""}>${p.label}</option>`).join("")}</select></label></div>`;
   const documents = pack.items.map(([id,label,labelType,minimum])=>{
-    const ready = o.step >= minimum || (locked && chosen.has(id));
-    return `<div class="document"><label><input type="checkbox" name="doc" value="${id}" ${chosen.has(id) && ready?"checked":""} ${!ready||locked||reviewer?"disabled":""}> <span>${label} <small>${ready?labelType:"Chờ hồ sơ đầu ra"}</small></span></label>${btn("Xem chứng từ","document",{value:id,style:"light compact",disabled:!ready})}</div>`;
+    const source=locked&&bundle.snapshot?bundle.snapshot:o;
+    const reached=o.step>=minimum;
+    const available=hasSource(source,id);
+    const ready = (reached&&(!isNewFlow(o)||available)) || (locked && chosen.has(id));
+    const file=evidenceFor(source,id);
+    return `<div class="document"><label><input type="checkbox" name="doc" value="${id}" ${(chosen.has(id)||(!bundle?.docs?.length&&available)) && ready?"checked":""} ${!ready||locked||reviewer?"disabled":""}> <span>${label} <small>${available ? "Đã có nguồn"+(file?" · "+esc(file.ref):"") : !reached?"Chờ hồ sơ đầu ra":isNewFlow(o)?"Thiếu chứng từ nguồn":labelType+" · Hồ sơ minh họa cũ"}</small></span></label>
+    <div class="actions">${file?sourceDownload(o,file):ready?btn("Xem chứng từ","document",{value:id,style:"light compact"}):""}
+    ${reached&&!locked&&!reviewer&&!(id==="bao-gia"&&acceptedQuote(o))?btn(file?"Thay tệp":"Thêm PDF nguồn","upload-source",{value:id,style:"light compact"}):""}</div></div>`;
   }).join("");
   const actions = reviewer
     ? (bundle?.status==="pending" ? btn("Yêu cầu bổ sung","return-pack",{style:"light"})+btn("Duyệt hồ sơ","approve-pack",{icon:"check"}) : "")
@@ -433,7 +443,7 @@ function zip(files) {
   }
   for (const [filename, content] of files) {
     const name = encoding.encode(filename);
-    const input = encoding.encode(content);
+    const input = content instanceof Uint8Array?content:encoding.encode(content);
     const crc = checksum(input);
     const header = bytes(30,[[0,0x04034b50,1],[4,20],[6,0x0800],[12,0x5d70],[14,crc,1],[18,input.length,1],[22,input.length,1],[26,name.length]]);
     chunks.push(header,name,input);
@@ -446,16 +456,21 @@ function zip(files) {
 }
 function packageFiles(order,bundle,template,external = false) {
   const docs = template.items.filter(([id])=>bundle.docs.includes(id) && (!external || template.outward.includes(id)));
+  const rendered = external ? {...bundle, maker:"Bộ phận kế toán",reviewer:"Người có thẩm quyền"} : bundle;
+  const entries=docs.map(item=>{
+    const source=(item[0]==="bao-gia"&&acceptedQuote(bundle.snapshot??order))?null:evidenceFor(bundle.snapshot??{},item[0]);
+    return source?[item[0]+".pdf",item[1],Uint8Array.from(atob(source.content),c=>c.charCodeAt(0))]:
+      [item[0]+".html",item[1],documentFile(order,item,rendered)];
+  });
   const manifest = {
     label:"Dữ liệu minh họa", company:companyName(order.company), order:order.id,
     kind:template.label, ...(!external ? {preparedBy:bundle.maker, approvedBy:bundle.reviewer, approvedAt:bundle.approvedAt, referencesChecked:bundle.evidence} : {}),
-    files:docs.map((item)=>item[0]+".html"),
+    files:entries.map(([name])=>name),
   };
-  const rendered = external ? {...bundle, maker:"Bộ phận kế toán",reviewer:"Người có thẩm quyền"} : bundle;
   return {
-    names: docs.map(([id,label])=>[id+".html",label]),
+    names: entries.map(([name,label])=>[name,label]),
     filename:`DEMO-${order.id}-${template.prefix}${external?"-gui-doi-tac":""}.zip`,
-    blob:zip([["danh-muc.json",JSON.stringify(manifest,null,2)],...docs.map((item)=>[item[0]+".html",documentFile(order,item,rendered)])]),
+    blob:zip([["danh-muc.json",JSON.stringify(manifest,null,2)],...entries.map(([name,,content])=>[name,content])]),
   };
 }
 function exportBundle() {
@@ -668,13 +683,21 @@ function newOrder() {
 }
 function advanceDialog(order) {
   if (!canWork(order) || order.paused || order.step>=11 || order.step===3) return;
+  if(isNewFlow(order)&&order.step===4&&(!evidenceFor(order,"hop-dong")||!order.depositTerm)) {
+    notify("Lưu hợp đồng đã ký và đặt mức tạm ứng trước khi chuyển bước."); return;
+  }
   const step = stages[order.step];
   const deposit = order.step===5;
   const settle = order.step===9;
+  const readonly=isNewFlow(order)?'readonly aria-label="Tiền đã thu theo các lần ghi nhận"':"";
   openDialog(step.action,`<form id="advance-form" data-order="${esc(order.id)}" data-step="${order.step}">
    ${stageContent(step)}<p class="gate-line"><strong>Điều kiện chuyển bước</strong> ${esc(step.gate)}</p>
-   ${deposit ? `<div class="form-grid"><label class="field wide">Tổng số tiền thực nhận (₫)<input class="input" name="paid" type="number" step="1" min="0" max="${order.total}" value="${order.paid}" required></label><label class="field wide">Mã duyệt ngoại lệ nếu chưa đủ ứng<input class="input" name="approval" maxlength="80"></label></div><p class="muted">Mốc giả định ${money(order.deposit)}. Có thể lưu số thực nhận và tiếp tục chờ.</p>` : ""}
-   ${settle ? `<div class="form-grid"><label class="field">Tổng số đã thu (₫)<input class="input" name="paid" type="number" min="0" max="${order.total}" value="${order.paid}" required></label><label class="field">Tiền giữ lại (₫)<input class="input" name="retention" type="number" min="0" max="${order.total}" value="${order.retention}" required></label></div>` : ""}
+   ${deposit ? `<div class="form-grid"><label class="field wide">Tổng số tiền thực nhận (₫)<input class="input" name="paid" type="number" step="1" min="0" max="${order.total}" value="${order.paid}" ${readonly} required></label><label class="field wide">Mã duyệt ngoại lệ nếu chưa đủ ứng<input class="input" name="approval" maxlength="80"></label></div><p class="muted">Mốc tạm ứng ${money(order.deposit)}.${readonly?" Dùng Ghi nhận lần thu để cập nhật.":""}</p>` : ""}
+   ${settle ? `<div class="form-grid"><label class="field">Tổng số đã thu (₫)<input class="input" name="paid" type="number" min="0" max="${order.total}" value="${order.paid}" ${readonly} required></label><label class="field">Tiền giữ lại (₫)<input class="input" name="retention" type="number" min="0" max="${order.total}" value="${order.retention}" required></label></div>` : ""}
+   ${order.step===8&&isNewFlow(order)?`<div class="form-grid">
+   <label class="field">Ngày giao nhận<input class="input" name="deliveryDay" type="date" max="${dayInVietnam()}" value="${dayInVietnam()}" required></label>
+   <label class="field">Người nhận mẫu<input class="input" name="deliveryRecipient" maxlength="100" required></label>
+   <label class="field wide">Hạng mục và khối lượng bàn giao<input class="input" name="deliveryScope" maxlength="240" required></label></div>`:""}
    <label class="field">Mã tham chiếu hồ sơ đầu ra<input class="input" name="reference" maxlength="90" value="${esc(order.id+"-B"+String(order.step+1).padStart(2,"0")+(order.step===8?"-D"+(order.delivered+1):""))}" required></label>
    <label class="field extra-field">Ghi chú đối soát<textarea class="input" name="note" maxlength="240" ${settle?"required":""}></textarea></label>
    <label class="check"><input type="checkbox" name="confirm" required> Đã kiểm tra đầu vào và xác nhận kết quả bước này.</label>
@@ -706,7 +729,7 @@ function createOrder(form,intent) {
   const contact=String(form.get("contact")||identity.person||"").trim();
   const deliveryAddress=String(form.get("deliveryAddress")||identity.address||"").trim();
   data.orders.unshift({id,company:session.company,title,customer,quoteIdentity:identity,contact,deliveryAddress,type,items,total,batches,due:form.get("due"),step:0,paid:0,
-    delivered:0,deposit:Math.round(total*.3),retention:0,records:{},history:[log("Đã tạo hồ sơ đơn hàng")]});
+    delivered:0,deposit:0,sourceControl:true,retention:0,records:{},history:[log("Đã tạo hồ sơ đơn hàng")]});
   selected.order=id;selected.stage=null;selected.quote=null;
   modal.close(); save(); show(intent==="quote"?"quote":"detail"); notify("Đã lưu đơn hàng.");
   if (intent==="quote") editQuote(false);
@@ -714,11 +737,14 @@ function createOrder(form,intent) {
 function advanceOrder(order,step,form) {
   if (!canWork(order) || order.paused || order.step!==step || step===3 || (step===4&&acceptedQuote(order)&&!order.contract?.final) || step>=11 || !form.has("confirm")) return;
   const note=String(form.get("note")||"").trim();
-  const reference=String(form.get("reference")||"").trim();
+  if(isNewFlow(order)&&step===4&&(!evidenceFor(order,"hop-dong")||!order.depositTerm)) {
+    return fieldError("dialog-error","Lưu bản hợp đồng đã ký và đặt điều khoản tạm ứng trước khi chuyển bước.");
+  }
+  const reference=step===4&&isNewFlow(order)?evidenceFor(order,"hop-dong").ref:String(form.get("reference")||"").trim();
   if (!reference) {fieldError("dialog-error","Điền mã tham chiếu hồ sơ đầu ra.");return;}
   let label=stages[step].action;
   if (step===5 || step===9) {
-    const paid=Number(form.get("paid"));
+    const paid=isNewFlow(order)?order.paid:Number(form.get("paid"));
     if (!Number.isSafeInteger(paid) || paid<order.paid || paid>order.total) {
       fieldError("dialog-error","Số đã thu phải từ số đã ghi nhận đến tổng giá trị hợp đồng. Điều chỉnh giảm cần xử lý đối soát riêng.");
       return;
@@ -741,6 +767,14 @@ function advanceOrder(order,step,form) {
     }
   }
   if (step===8) {
+    if(isNewFlow(order)) {
+      const get=key=>String(form.get(key)||"").trim();
+      const day=get("deliveryDay"), recipient=get("deliveryRecipient"), scope=get("deliveryScope");
+      if(!day||day>dayInVietnam()||!recipient||!scope||order.deliveryLots?.some(lot=>lot.reference.toLowerCase()===reference.toLowerCase())){
+        return fieldError("dialog-error","Kiểm tra ngày, người nhận, khối lượng và mã bàn giao. Mỗi mã chỉ ghi nhận một lần.");
+      }
+      (order.deliveryLots ||= []).push({day,recipient,scope,reference,actor:session.account});
+    }
     order.delivered++;
     label += ` ${order.delivered}/${order.batches}`;
     if (order.delivered<order.batches) {
@@ -764,7 +798,7 @@ function savePack(form, orderID, intent) {
   const bundle=data.packs[key];
   if (["pending","approved"].includes(bundle?.status)) return;
   const docs=form.getAll("doc");
-  const eligible=packs[kind].items.filter((item)=>order.step>=item[3]).map((item)=>item[0]);
+  const eligible=packs[kind].items.filter(([id,,,step])=>order.step>=step&&(!isNewFlow(order)||hasSource(order,id))).map((item)=>item[0]);
   const evidence=form.has("evidence");
   if (docs.some((id)=>!eligible.includes(id))) return;
   const submit=intent==="submit";
@@ -809,6 +843,12 @@ const actionHandlers={
   "commercial-export":commercialExport,
   "commercial-email":commercialEmail,
   "edit-stock-price":editStockPrice,
+  "link-customer":()=>operationDialog("link-customer"),
+  "set-deposit":()=>operationDialog("set-deposit"),
+  "add-receipt":()=>operationDialog("add-receipt"),
+  "upload-source":sourceAction,
+  "download-source":downloadSource,
+  "stock-move":stockMoveDialog,
   "archive-pack":()=>{
     const {bundle}=currentPack();
     if (session?.role!=="maker"||bundle?.status!=="approved"||bundle.archivedAt) return;
@@ -921,6 +961,15 @@ document.addEventListener("submit",(event)=>{
     case "quote-transition-form": transitionQuote(el.dataset.status,el.dataset.quote,form);break;
     case "contract-form": saveContract(form,el,event.submitter?.value);break;
     case "stock-price-form": saveStockPrice(form,el);break;
+    case "operation-form": saveOperation(form,el);break;
+    case "stock-move-form": saveStockMove(form,el);break;
+    case "source-form": {
+      const submit=event.submitter;
+      if(!submit||submit.disabled)break;
+      submit.disabled=true;
+      void saveSource(form,el).catch(()=>fieldError("dialog-error","Chưa lưu được chứng từ.")).finally(()=>{submit.disabled=false;});
+      break;
+    }
     case "commercial-email": {
       const submit=event.submitter;
       if(!submit||submit.disabled)break;
