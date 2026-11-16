@@ -8,7 +8,7 @@ const DEMO = (() => {
     { name: "Tiếp nhận", owner: "Kinh doanh", action: "Xác nhận tiếp nhận", input: ["Nhu cầu và thông tin đối tác", "Loại đơn hàng, thời hạn và người phụ trách"], task: "Đối chiếu đối tác, làm rõ phạm vi và chọn quy trình phù hợp.", gate: "Đã xác minh nhu cầu và giao người phụ trách.", output: "Phiếu tiếp nhận và mã hồ sơ", link: "partners" },
     { name: "Khảo sát", owner: "Kỹ thuật", action: "Xác nhận hiện trạng", input: ["Phiếu tiếp nhận", "Địa điểm, lịch và điều kiện tiếp cận"], task: "Đo đạc, chụp ảnh và ghi các giới hạn kỹ thuật.", gate: "Đã kiểm tra số đo, ảnh và điều kiện hiện trường.", output: "Biên bản khảo sát hiện trạng" },
     { name: "Thiết kế", owner: "Kỹ thuật / Quản lý dự án", action: "Chốt phương án", input: ["Biên bản khảo sát", "Yêu cầu kỹ thuật của khách hàng"], task: "Lập phương án, soát kỹ thuật và lấy xác nhận cho đúng phiên bản.", gate: "Đã lưu phiên bản được xác nhận.", output: "Bản vẽ chốt và xác nhận thiết kế" },
-    { name: "Báo giá", owner: "Kinh doanh / Người duyệt giá", action: "Xác nhận báo giá", input: ["Phạm vi hoặc bản vẽ chốt", "Số lượng, đơn giá và điều kiện giao hàng"], task: "Lập báo giá, trình duyệt và lưu phản hồi của khách hàng.", gate: "Báo giá đã duyệt, còn hiệu lực và được khách hàng chấp thuận.", output: "Báo giá đã duyệt và xác nhận đặt hàng" },
+    { name: "Báo giá", owner: "Kinh doanh / Người duyệt giá", action: "Xử lý báo giá", input: ["Hạng mục của đơn hàng hoặc bản vẽ chốt", "Số lượng, đơn giá và điều kiện giao hàng"], task: "Lập phiên bản báo giá, duyệt, ghi nhận đã gửi và lưu bằng chứng khách chấp thuận.", gate: "Báo giá đã duyệt, còn hiệu lực và được khách hàng chấp thuận.", output: "Báo giá được khách chấp thuận và mã tham chiếu" },
     { name: "Hợp đồng", owner: "Kinh doanh / Người có thẩm quyền", action: "Xác nhận hợp đồng", input: ["Báo giá đã chấp thuận", "Thông tin pháp nhân, phạm vi và lịch thanh toán"], task: "Soạn, rà soát và lưu hợp đồng đã ký cùng các phụ lục.", gate: "Đã có bản ký, ngày hiệu lực và lịch thanh toán.", output: "Hợp đồng, phụ lục và các mốc thanh toán" },
     { name: "Tạm ứng", owner: "Kế toán / Người duyệt ngoại lệ", action: "Đối soát tạm ứng", input: ["Hợp đồng và đề nghị tạm ứng", "Chứng từ thu hoặc sao kê"], task: "So số thực nhận với mốc đã thỏa thuận và ghi nhận ngoại lệ nếu có.", gate: "Đủ mốc tạm ứng hoặc có tham chiếu phê duyệt ngoại lệ.", output: "Kết quả đối soát và điều kiện mở việc", link: "finance" },
     { name: "Mua hàng và kho", owner: "Mua hàng / Thủ kho", action: "Xác nhận sẵn sàng vật tư", input: ["Nhu cầu vật tư và tồn khả dụng", "Đề xuất mua và chứng từ nhận hàng nếu có"], task: "Giữ tồn, mua phần thiếu, kiểm hàng nhận và xác nhận xuất kho.", gate: "Đã kiểm tra nguồn vật tư và có chứng từ xuất hoặc giao phù hợp.", output: "Hồ sơ mua hàng và phiếu nhập, xuất kho", link: "inventory" },
@@ -105,17 +105,6 @@ const DEMO = (() => {
       ["Đối chiếu công nợ đến hạn", "Trước hạn 3 ngày", "Kế toán", "Chờ xử lý"],
     ] },
   };
-  const questions = [
-    ["Q01","Dashboard HĐQT","Chỉ số nào cần xem theo công ty? Có giao dịch nội bộ cần loại khi tổng hợp quản trị không?"],
-    ["Q02","Tài khoản và quyền","Ai duyệt đơn, chứng từ và quyền truy cập ở từng công ty? HĐQT được xem sâu tới mức nào?"],
-    ["Q03","Hai bộ chứng từ","Gửi một bộ bán hàng và một bộ mua hàng – thanh toán đã che dữ liệu. Cho biết ai lập, duyệt và ký từng mẫu."],
-    ["Q04","Hóa đơn, ký số và kế toán","Mỗi công ty đang dùng chế độ kế toán, nhà cung cấp hóa đơn điện tử và chữ ký số nào?"],
-    ["Q05","Tạm ứng và triển khai","Mức ứng bao nhiêu thì được mở việc? Ai duyệt đơn gấp, bỏ bước hoặc phát sinh sau ký?"],
-    ["Q06","Kho và giao từng đợt","Có dùng chung kho, điều chuyển nội bộ hoặc giao và nghiệm thu theo đợt? Ai ký nhận?"],
-    ["Q07","Công nợ và bảo hành","Mốc nào phát sinh phải thu? “Nợ bảo hành” là tiền giữ lại, nghĩa vụ bảo hành hay cả hai?"],
-    ["Q08","KPI và nhắc việc","Cần theo dõi KPI nào theo đối tác hoặc nhân viên? Cách tính, kỳ đánh giá và mục tiêu từng KPI là gì? Mục “ZZZZZ” trong danh mục là loại nhắc nào?"],
-    ["Q09","Dữ liệu và tài liệu gốc","Dữ liệu nào được nhập hoặc dùng chung? Cần lưu chứng từ, tệp ký và hồ sơ nhân sự theo chính sách nào?"],
-  ];
   function initialState() {
     const orders = Object.entries(sampleRows).flatMap(([company, rows]) => rows.map((row, index) => {
       const [title, customer, total, step, paid, batches, type] = row;
@@ -126,7 +115,7 @@ const DEMO = (() => {
         history: [{ label: "Khởi tạo hồ sơ minh họa", actor: "Hệ thống demo", at: "2026-11-16T09:00:00+07:00" }],
       };
     }));
-    return { orders, packs: {}, checklists: {}, feedback: [] };
+    return { orders, packs: {}, checklists: {} };
   }
-  return { companies, stages, tracks, packs, modules, questions, initialState };
+  return { companies, stages, tracks, packs, modules, initialState };
 })();

@@ -5,10 +5,10 @@ Bản demo để Tam Cường, Nam Cường và Hùng Cường rà soát nghiệ
 ## Cách dùng thử
 
 1. Mở **Báo cáo dành cho HĐQT**, lọc từng công ty và xem số liệu quản trị. Giá trị tổng là phép cộng minh họa, chưa loại giao dịch nội bộ.
-2. Mở một trong ba **Công ty**. Xem **Quy trình nghiệp vụ**, chọn bán hàng có sẵn hoặc sản xuất và thi công. Trong hồ sơ đơn hàng, chọn bước để xem đầu vào, cách thực hiện, đầu ra và điều kiện chuyển tiếp. Khi xác nhận, lưu mã tham chiếu đầu ra. Các tình huống thử có tạm ứng một phần, ngoại lệ, tạm dừng và bàn giao nhiều đợt.
-3. Trong hồ sơ đơn hàng, mở bộ chứng từ liên quan, hoặc mở **Dành cho kế toán** rồi chọn công ty. Chọn hồ sơ đủ mốc, kiểm danh mục và trình duyệt. Đổi sang tài khoản người duyệt của cùng công ty để yêu cầu bổ sung hoặc duyệt. Liên kết **Mở hồ sơ nguồn** dẫn về đúng mã đơn hàng và yêu cầu đúng vai trò ở khu đích.
-4. Sau khi bộ hồ sơ được duyệt, đổi lại người lập và chọn **Soạn email gửi hồ sơ**. Kiểm tra địa chỉ mẫu `.test`, tiêu đề, nội dung và tệp đính kèm. **Gửi thử** ghi vào nhật ký. **Tải email .eml** tạo thư mẫu chứa ZIP đã lọc theo nhóm giấy tờ dành cho người nhận. Bộ mua hàng giữ nội bộ đề xuất mua, phiếu nhập và chứng từ đối soát. Nút **Tải bộ hồ sơ nội bộ** chứa danh mục đầy đủ.
-5. Mở **Góp ý nghiệp vụ**, điền các câu hỏi cần chốt và tải tệp phản hồi để gửi lại đầu mối.
+2. Mở một trong ba **Công ty**, chọn **Lập đơn hàng** và thêm hạng mục, số lượng, đơn giá. Có thể lưu và lập báo giá ngay. Xác nhận tiếp nhận để chuyển đơn bán hàng có sẵn sang báo giá. Đơn sản xuất và thi công đi qua khảo sát và thiết kế.
+3. Trong **Báo giá**, cập nhật hạng mục, chiết khấu, tiền thuế nếu áp dụng và thời hạn. Khi đơn đến bước báo giá, duyệt và tải bản HTML để in hoặc lưu PDF. Ghi nhận đã gửi và khách chấp thuận. Bản được chấp thuận trở thành đầu vào bước hợp đồng.
+4. Trong hồ sơ đơn hàng, mở bộ chứng từ liên quan, hoặc mở **Dành cho kế toán** rồi chọn công ty. Chọn hồ sơ đủ mốc, kiểm danh mục và gửi phê duyệt. Đổi sang tài khoản người duyệt của cùng công ty để yêu cầu bổ sung hoặc duyệt. Liên kết **Mở hồ sơ nguồn** dẫn về đúng mã đơn hàng và yêu cầu đúng vai trò ở khu đích.
+5. Sau khi bộ hồ sơ được duyệt, đổi lại người lập và chọn **Soạn email gửi hồ sơ**. Kiểm tra địa chỉ mẫu `.test`, tiêu đề, nội dung và tệp đính kèm. **Gửi thử** ghi vào nhật ký. **Tải email .eml** tạo thư mẫu chứa ZIP đã lọc theo nhóm giấy tờ dành cho người nhận. Bộ mua hàng giữ nội bộ đề xuất mua, phiếu nhập và chứng từ đối soát. Nút **Tải bộ hồ sơ nội bộ** chứa danh mục đầy đủ.
 
 Chỉ dùng dữ liệu giả định. Tài khoản, quyền, gửi email và nhật ký là mô phỏng trên trình duyệt. Phiên đăng nhập giữ trong trang, thay đổi lưu trong bộ nhớ cục bộ nếu trình duyệt cho phép. Khi vận hành thật phải áp quyền ở máy chủ theo công ty và hồ sơ, tách người lập với người duyệt, giữ bản gốc và nhật ký tập trung. Chốt địa chỉ gửi từng công ty, danh mục được gửi cho mỗi người nhận và cấu hình dịch vụ email trước khi gửi thật.
 

@@ -125,6 +125,40 @@
 .dialog-body .mail-note{font-size:12px;margin-top:8px;color:var(--muted)}
 .extra-field{margin-top:9px}
 .mail-body{line-height:1.45}
+#modal:has(#create-order,#quote-form){width:min(850px,calc(100% - 25px))}
+.line-editor{margin:16px 0}
+.line-editor-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.line-editor-head h3{font-size:14px}
+.sales-line{
+  display:grid;grid-template-columns:minmax(145px,2.2fr) minmax(58px,.7fr) minmax(63px,.72fr) minmax(100px,1.2fr) minmax(90px,.95fr) auto;
+  gap:8px;align-items:end;padding:9px 8px;border:1px solid var(--line);border-radius:8px;background:#f7faf7
+}
+.sales-line+.sales-line{margin-top:6px}
+.sales-line .input{padding-inline:7px}
+.line-sum{min-height:59px;display:flex;flex-direction:column;gap:8px;justify-content:center;font-size:12px;min-width:0}
+.line-sum small{font-size:11px;color:var(--muted)}
+.line-sum output{font-weight:800;overflow-wrap:anywhere}
+.line-remove{height:39px}
+.sales-grand{display:flex;justify-content:space-between;align-items:center;gap:8px;background:#eaf3e9;border:1px solid #d4e5d4;border-radius:8px;padding:10px 12px;font-size:13px;font-weight:760}
+.sales-grand output{font-size:16px;color:var(--green);font-variant-numeric:tabular-nums}
+.quote-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.quote-sheet-head{display:flex;align-items:start;justify-content:space-between;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:11px}
+.quote-sheet-head h2{font-size:18px;margin-top:4px;overflow-wrap:anywhere}
+.quote-facts{display:flex;flex-wrap:wrap;gap:9px 26px;margin:12px 0;font-size:13px;line-height:1.45}
+.quote-facts div{min-width:95px}
+.quote-facts small{display:block;color:var(--muted);margin-bottom:3px}
+.quote-sheet .table-scroll{border:1px solid var(--line);border-radius:9px}
+.quote-totals{width:min(285px,100%);margin:13px 0 0 auto;font-size:13px}
+.quote-totals div{display:flex;justify-content:space-between;padding:7px 8px;gap:10px}
+.quote-totals dd{margin:0;font-variant-numeric:tabular-nums}
+.quote-totals .grand{background:var(--soft);border-radius:7px;color:var(--green);font-weight:800}
+.quote-sheet .notice,.quote-actions{margin-top:14px}
+@media(max-width:650px){
+  .sales-line{grid-template-columns:1fr 1fr}
+  .sales-line label:first-child{grid-column:1/-1}
+  .line-sum{min-height:39px;gap:3px}
+  .line-remove{grid-column:2;justify-self:end}
+}
 @media(max-width:950px){
   .hero{grid-template-columns:minmax(320px,1fr) minmax(0,.74fr);min-height:310px;padding:0}
   .hero-copy{padding:34px 23px 34px 33px}
