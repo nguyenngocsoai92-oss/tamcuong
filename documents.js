@@ -72,7 +72,7 @@ function officeFile(format,rows) {
       if(/^Điều /.test(row[0]))return paragraph(row[1],false,false,row[0]);
       return paragraph(row.map(printable).join("  ·  "),heading&&i===0,heading&&i===0);
     }).join("");
-    const widths=[2190,850,580,1510,770,1470,1640];
+    const widths=[1970,1070,580,1510,770,1470,1640];
     const printRows=printableSalesTable(rows.slice(start,end));
     const table=start>=0?`<w:tbl><w:tblPr><w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(side=>`<w:${side} w:val="single" w:sz="4" w:color="BDB6A2"/>`).join("")}</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>
     ${printRows.map((row,i)=>`<w:tr><w:trPr><w:cantSplit/>${i===0?"<w:tblHeader/>":""}</w:trPr>${row.map((value,j)=>`<w:tc><w:tcPr><w:tcW w:w="${widths[j]}" w:type="dxa"/>${i===0?'<w:shd w:fill="EAE5D8"/>':""}</w:tcPr>${paragraph(printable(value),i===0)}</w:tc>`).join("")}</w:tr>`).join("")}</w:tbl>`:"";
