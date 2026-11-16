@@ -469,7 +469,7 @@ function packageFiles(order,bundle,template,external = false) {
     if(finalFile)return [item[0]+".pdf",item[1],accountingFileBytes(finalFile)];
     const source=(item[0]==="bao-gia"&&acceptedQuote(bundle.snapshot??order))?null:evidenceFor(bundle.snapshot??{},item[0]);
     return source?[item[0]+".pdf",item[1],Uint8Array.from(atob(source.content),c=>c.charCodeAt(0))]:
-      [item[0]+".html",item[1],documentFile(order,item,rendered)];
+      [item[0]+".html",item[1],bundle.legalProfile?formalHtml(formalDocument(order,item,rendered,bundle.edits?.[item[0]],template===packs.buying?"buying":"sales")):documentFile(order,item,rendered)];
   });
   const manifest = {
     label:"Dữ liệu minh họa", company:companyName(order.company), order:order.id,
@@ -837,6 +837,8 @@ function savePack(form, orderID, intent) {
   if (submit) {
     next.snapshot=JSON.parse(JSON.stringify(order));
     next.edits=accountingEdits(key);
+    next.legalProfile=liveLegal(order.company);
+    next.formalPurchases=captureFormalPurchases(order);
   }
   if(commitOperational(()=>{
     data.packs[key]=next;
@@ -881,7 +883,9 @@ const actionHandlers={
   "customer-care":careAction,
   "account-workbench":()=>document.querySelector("#accounting-workbench")?.scrollIntoView({block:"start"}),
   "account-document":accountingEditDialog,
-  "account-template":accountingTemplate,
+  "account-template":id=>accountingTemplate(id),
+  "account-form-print":id=>accountingTemplate(id,true),
+  "account-legal":legalProfileDialog,
   "account-doc-file":accountingDownloadFile,
   "account-revise":accountingRevise,
   "account-old-pack":accountingDownloadOld,
@@ -1014,6 +1018,7 @@ document.addEventListener("submit",(event)=>{
       else show(session.area==="accounting"?"accounting":"dashboard");
       break;
     }
+    case "legal-profile": saveLegalProfile(form,el);break;
     case "account-editor": saveAccountingDocument(form,el);break;
     case "account-revise-form": saveAccountingRevision();break;
     case "workforce-form": if(el.dataset.kind.startsWith("care-"))saveCare(form,el);else saveWorkforce(form,el);break;

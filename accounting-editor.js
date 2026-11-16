@@ -3,25 +3,21 @@
 const accountingFileLimit=200*1024;
 const accountingEdits=(key)=>data.accountingEdits?.[key]||{};
 const accountingVersions=key=>data.accountingVersions?.[key]||[];
-const accountingFields=(order,item,bundle,edit)=>{
-  const source=bundle?.snapshot||order;
-  if(item[0]==="hop-dong")return Object.entries(contractFields).map(([key,label])=>[key,label,edit?.fields?.[key]??source.contract?.[key]??(key==="scope"?order.title:"")]);
-  return [["ref","Số hiệu / Mã tham chiếu",edit?.fields?.ref??documentDetails(order,item,bundle).rows[0][1]],
-    ["content","Nội dung chứng từ",edit?.fields?.content??documentDetails(order,item,bundle).rows.find(([label])=>label==="Nội dung")[1]],
-    ["note","Ghi chú",edit?.fields?.note??""]];
-};
+const accountingFields=formEditableFields;
 function accountingWorkbench(order,template,bundle){
   const key=packKey(order,selected.kind);
   const editable=session.role==="maker"&&!["pending","approved"].includes(bundle?.status);
   const versions=accountingVersions(key);
   const edits=["pending","approved"].includes(bundle?.status)?bundle.edits||{}:accountingEdits(key);
-  const actions=session.role==="maker"&&bundle?.status==="approved"?btn("Tạo bản chỉnh sửa","account-revise",{style:"light"}):"";
-  const rows=template.items.map(item=>{
+  const actions=session.role!=="maker"?"":`<div class="actions">${btn("Nhận diện và pháp nhân","account-legal",{style:"light"})}${bundle?.status==="approved"?btn("Tạo bản chỉnh sửa","account-revise",{style:"light"}):""}</div>`;
+  const rows=[...template.items,...formalExtras(selected.kind)].map(item=>{
     const [id,label]=item,edit=edits[id];
+    const supplemental=item[2]==="Biểu mẫu bổ trợ";
     const status=edit?.finalFile?"Có PDF final":edit?.needsFinal?"Chờ PDF final":edit?.fields?"Đã lưu bản làm việc":"Mẫu có sẵn";
-    return `<tr><td><strong>${esc(label)}</strong><small>${esc(edit?.finalFile?.name||edit?.workingFile?.name||"")}</small></td><td>${chip(status)}</td><td><div class="actions">
+    return `<tr><td><strong>${esc(label)}</strong>${supplemental?"<small>Mẫu tải riêng</small>":""}<small>${esc(edit?.finalFile?.name||edit?.workingFile?.name||"")}</small></td><td>${chip(status)}</td><td><div class="actions">
       ${btn(editable?"Mở và chỉnh sửa":"Xem mẫu / tệp","account-document",{value:id,style:"light compact"})}
       ${btn("Tải Word","account-template",{value:id,style:"quiet compact",icon:"down"})}
+      ${btn("Mẫu in / PDF","account-form-print",{value:id,style:"quiet compact",icon:"doc"})}
       ${edit?.finalFile?btn("Tải PDF final","account-doc-file",{value:id+"|finalFile",style:"quiet compact",icon:"down"}):""}
       </div></td></tr>`;
   });
@@ -31,7 +27,7 @@ function accountingWorkbench(order,template,bundle){
 }
 function accountingDocument(id){
   const {order,key,bundle,template}=currentPack();
-  const item=template?.items.find(entry=>entry[0]===id);
+  const item=template&&[...template.items,...formalExtras(selected.kind)].find(entry=>entry[0]===id);
   if(!item)return {};
   const locked=["pending","approved"].includes(bundle?.status);
   const edit=(locked?bundle.edits||{}:accountingEdits(key))[id];
@@ -44,13 +40,13 @@ function accountingEditDialog(id){
   const working=edit?.workingFile?btn("Tải Word đã tải lên","account-doc-file",{value:id+"|workingFile",style:"light compact",icon:"down"}):"";
   const final=edit?.finalFile?btn("Tải PDF final","account-doc-file",{value:id+"|finalFile",style:"light compact",icon:"down"}):"";
   const files=`<div class="actions">${working}${final}</div>`;
-  const content=fields.map(([name,label,value])=>editable?workforceNote(label,name,value,false):
+  const content=fields.map(([name,label,value])=>editable?(name.startsWith("detail")||name==="lineNote"?workforceNote(label,name,value,false):workforceField(label,name,{value,required:false,max:200})):
     `<p><strong>${esc(label)}</strong></p><p class="care-copy">${esc(value||"—")}</p>`).join("");
   openDialog(esc(item[1]),editable?`<form id="account-editor" data-item="${esc(id)}" data-key="${esc(key)}">
     <p class="muted">${esc(order.id)} · Bản làm việc của kế toán</p><div class="form-grid">${content}
     <label class="field">Word đã chỉnh (.docx)<input class="input" type="file" name="workingFile" accept=".docx"></label>
     <label class="field">Bản final (.pdf)<input class="input" type="file" name="finalFile" accept=".pdf,application/pdf"></label></div>
-    ${id==="hop-dong"?'<label class="check"><input type="checkbox" name="verified"> PDF mới là bản đã ký và đã đối chiếu với hợp đồng.</label>':""}
+    ${["hop-dong","mua-hang"].includes(id)?'<label class="check"><input type="checkbox" name="verified"> PDF mới là bản đã ký và đã đối chiếu với hợp đồng.</label>':""}
     ${edit?.finalFile?'<label class="check"><input type="checkbox" name="removeFinal"> Gỡ PDF final khỏi bản làm việc</label>':""}
     <p class="muted">Tối đa 200 KB mỗi tệp. Chỉnh Word trên máy rồi tải lại. Với hồ sơ cần chữ ký, chọn bản PDF đã ký.</p>
     ${files}<p id="dialog-error" class="error" aria-live="polite"></p><button class="btn">Lưu bản làm việc</button></form>`:files+content);
@@ -62,10 +58,11 @@ async function saveAccountingDocument(form,el){
   const fail=message=>fieldError("dialog-error",message);
   const fields=Object.fromEntries(accountingFields(original.order,original.item,original.bundle,original.edit).map(([name])=>[name,String(form.get(name)||"").trim()]));
   if(Object.values(fields).some(value=>value.length>1600))return fail("Mỗi mục có tối đa 1.600 ký tự.");
+  if(parseFormalLines(fields.lineNote).some(row=>!row))return fail("Kiểm tra từng dòng hạng mục: tên | ĐVT | số lượng | đơn giá | VAT 0, 5, 8 hoặc 10.");
   const next={...original.edit,fields,at:new Date().toISOString(),actor:session.account};
   const changed=accountingFields(original.order,original.item,original.bundle,original.edit).some(([name,,value])=>fields[name]!==String(value).trim());
   if(form.has("removeFinal")||changed||form.get("workingFile")?.size)delete next.finalFile;
-  if(form.get("finalFile")?.size&&id==="hop-dong"&&!form.has("verified"))return fail("Xác nhận PDF hợp đồng đã ký và đã đối chiếu.");
+  if(form.get("finalFile")?.size&&["hop-dong","mua-hang"].includes(id)&&!form.has("verified"))return fail("Xác nhận PDF hợp đồng đã ký và đã đối chiếu.");
   for(const [key,ext,signature] of [["workingFile",".docx","PK\x03\x04"],["finalFile",".pdf","%PDF-"]]){
     const file=form.get(key);
     if(!file?.size)continue;
@@ -80,14 +77,15 @@ async function saveAccountingDocument(form,el){
     modal.close();render();notify("Đã lưu bản làm việc của kế toán.");
   }
 }
-function accountingTemplate(id){
+function accountingTemplate(id,print=false){
   const {order,bundle,item,edit}=accountingDocument(id);
   if(!item)return;
-  const source=bundle?.snapshot||order,quote=acceptedQuote(source);
-  const rows=item[0]==="bao-gia"&&quote?commercialRows(source,quote):
-    item[0]==="hop-dong"&&quote?commercialRows(source,quote,{id:source.contract?.id||order.id+"-HD-MAU",...source.contract,...edit?.fields,final:false}):
-    [[item[1].toUpperCase(),order.id],["Bản làm việc","Dữ liệu minh họa"],...accountingFields(order,item,bundle,edit).map(([,label,value])=>[label,value]),[],["Đại diện bên bán ký","Đại diện bên mua ký"]];
-  triggerDownload(officeFile("docx",rows),`${order.id}-${id}-ban-lam-viec.docx`);
+  const form=formalDocument(order,item,bundle,edit,selected.kind);
+  if(print){
+    const url=URL.createObjectURL(new Blob([formalHtml(form)],{type:"text/html;charset=utf-8"}));
+    window.open(url,"_blank","noopener");
+    setTimeout(()=>URL.revokeObjectURL(url),120000);
+  } else triggerDownload(formalWord(form),`${order.id}-${id}-ban-lam-viec.docx`);
 }
 const accountingFileBytes=file=>Uint8Array.from(atob(file.content),character=>character.charCodeAt(0));
 function accountingDownloadFile(value){

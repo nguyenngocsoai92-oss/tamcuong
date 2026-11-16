@@ -51,3 +51,9 @@ Trong Mua hàng và kho, lập phiếu nhập hoặc xuất trên hai vật tư 
 Chọn công ty, đơn hàng và loại bộ, rồi mở **Hợp đồng và chứng từ mẫu**. Có thể sửa nội dung ngay trên web, tải mẫu Word, lưu Word đã chỉnh và đính kèm PDF final. Khi trình duyệt, hệ thống khóa phiên bản tài liệu. PDF final được ưu tiên trong ZIP nội bộ và trong tệp đính kèm email mẫu đối với tài liệu được phép gửi. Danh mục xuất ra ngoài của bộ mua hàng vẫn áp dụng.
 
 Nếu sửa bộ đã duyệt, dùng **Tạo bản chỉnh sửa**. Bộ đã duyệt trước vẫn tải được từ lịch sử. Bản mới phải trình duyệt lại. Tệp mẫu giới hạn 200 KB mỗi tệp và được lưu trên trình duyệt.
+
+### Bộ 19 biểu mẫu
+
+Từ **Kế toán → Hợp đồng và chứng từ mẫu**, mở **Nhận diện và pháp nhân** để lưu tên đăng ký, mã số thuế, người đại diện, thông tin liên hệ, tài khoản, khẩu hiệu và logo cho từng công ty. Mỗi mẫu có bản Word và bản in A4. Nhập hạng mục thực tế cho phiếu giao, nhập, xuất và biên bản. Chỗ chưa có dữ liệu hiển thị trong dấu ngoặc vuông. Mẫu bổ trợ tải riêng.
+
+Mẫu hợp đồng tham chiếu nội dung tại [Điều 398 Bộ luật Dân sự](https://vbpl.moj.gov.vn/toaannhandantoicao/Pages/vbpq-toanvan.aspx?ItemID=95942). Trường dữ liệu và chữ ký trên chứng từ tham chiếu [Luật Kế toán](https://vanban.chinhphu.vn/?docid=183198&pageid=27160). Đối chiếu trường hợp giao kết với người tiêu dùng theo [Nghị định 55/2024/NĐ-CP](https://congbao.chinhphu.vn/van-ban/nghi-dinh-so-55-2024-nd-cp-41942.htm). Mẫu cần bổ sung dữ liệu, kiểm tra ngành nghề, chế độ kế toán và thẩm quyền ký trước khi áp dụng.

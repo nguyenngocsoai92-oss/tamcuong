@@ -42,15 +42,17 @@ function saveStockPrice(form,el) {
 }
 const xesc=(value)=>esc(String(value??"").replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g,""));
 const xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
-function officeFile(format,rows) {
+function officeFile(format,rows,options={}) {
   const sheet=format==="xlsx";
+  const logo=sheet?null:options.logo;
+  const logoExt=logo?.type==="image/png"?"png":"jpg";
   const main=sheet?"xl/workbook.xml":"word/document.xml";
   const root=sheet?"spreadsheetml":"wordprocessingml";
   const ns="http://schemas.openxmlformats.org/"+root+"/2006/main";
   const relationships="http://schemas.openxmlformats.org/officeDocument/2006/relationships";
   const rel=(type,target)=>xml+`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${relationships}/${type}" Target="${target}"/></Relationships>`;
   const files=[
-    ["[Content_Types].xml",xml+`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/${main}" ContentType="application/vnd.openxmlformats-officedocument.${root}.${sheet?"sheet":"document"}.main+xml"/>${sheet?'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>':""}</Types>`],
+    ["[Content_Types].xml",xml+`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${logo?`<Default Extension="${logoExt}" ContentType="${logoExt==="png"?"image/png":"image/jpeg"}"/>`:""}<Override PartName="/${main}" ContentType="application/vnd.openxmlformats-officedocument.${root}.${sheet?"sheet":"document"}.main+xml"/>${sheet?'<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>':""}</Types>`],
     ["_rels/.rels",rel("officeDocument",main)],
   ];
   if (sheet) {
@@ -62,12 +64,19 @@ function officeFile(format,rows) {
         return `<row r="${i+1}">${row.map(value=>typeof value==="number"?`<c${style}><v>${value}</v></c>`:`<c${style} t="inlineStr"><is><t xml:space="preserve">${xesc(value)}</t></is></c>`).join("")}</row>`;
       }).join("")}</sheetData></worksheet>`]);
   } else {
-    const paragraph=(value,emphasis=false,title=false,label="")=>`<w:p><w:pPr><w:spacing w:after="25" w:line="240" w:lineRule="auto"/>${title?'<w:jc w:val="center"/>':""}</w:pPr>${label?`<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="26"/></w:rPr><w:t xml:space="preserve">${xesc(label)}  ·  </w:t></w:r>`:""}<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/>${emphasis?"<w:b/>":""}<w:sz w:val="${title?34:26}"/><w:szCs w:val="${title?34:26}"/></w:rPr>${String(value??"").split(/\r?\n/).map(part=>`<w:t xml:space="preserve">${xesc(part)}</w:t>`).join("<w:br/>")}</w:r></w:p>`;
+    const paragraph=(value,emphasis=false,title=false,label="",center=false)=>`<w:p><w:pPr><w:keepLines/><w:spacing w:after="25" w:line="240" w:lineRule="auto"/>${title||center?'<w:jc w:val="center"/>':""}</w:pPr>${label?`<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="26"/></w:rPr><w:t xml:space="preserve">${xesc(label)}  ·  </w:t></w:r>`:""}<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/>${emphasis?"<w:b/>":""}<w:sz w:val="${title?34:26}"/><w:szCs w:val="${title?34:26}"/></w:rPr>${String(value??"").split(/\r?\n/).map(part=>`<w:t xml:space="preserve">${xesc(part)}</w:t>`).join("<w:br/>")}</w:r></w:p>`;
     const printable=(value)=>typeof value==="number"?number.format(value):value;
     const start=rows.findIndex(row=>row.length===8 && row[0]==="Hạng mục");
     const end=rows.findIndex((row,i)=>i>start && !row.length);
     const regular=(items,heading=false)=>items.map((row,i)=>{
-      if(["Đại diện bên bán ký","Người lập báo giá"].includes(row[0]))return `<w:tbl><w:tblPr><w:tblW w:w="9300" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4650"/><w:gridCol w:w="4650"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="1200" w:hRule="atLeast"/></w:trPr>${row.map(label=>`<w:tc>${paragraph(label,true)}${paragraph("Ký, ghi rõ họ tên")}</w:tc>`).join("")}</w:tr></w:tbl>`;
+      if(row===options.partyMarker&&options.parties?.length){
+        const width=Math.floor(9300/options.parties.length);
+        return `<w:tbl><w:tblPr><w:tblW w:w="9300" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>${options.parties.map(()=>`<w:gridCol w:w="${width}"/>`).join("")}</w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${options.parties.map(([label,fields])=>`<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/></w:tcPr>${paragraph(label,true)}${fields.map(([key,value])=>paragraph(value,false,false,key)).join("")}</w:tc>`).join("")}</w:tr></w:tbl>`;
+      }
+      if(row===options.signatures||["Đại diện bên bán ký","Người lập báo giá"].includes(row[0])){
+        const width=Math.floor(9300/row.length);
+        return `<w:tbl><w:tblPr><w:tblW w:w="9300" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>${row.map(()=>`<w:gridCol w:w="${width}"/>`).join("")}</w:tblGrid><w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="1200" w:hRule="atLeast"/></w:trPr>${row.map(label=>`<w:tc>${paragraph(label,true)}${paragraph("Ký, ghi rõ họ tên")}</w:tc>`).join("")}</w:tr></w:tbl>`;
+      }
       if(!row.length||row[0]==="Ký, ghi rõ họ tên")return "";
       if(/^Điều /.test(row[0]))return paragraph(row[1],false,false,row[0]);
       return paragraph(row.map(printable).join("  ·  "),heading&&i===0,heading&&i===0);
@@ -76,7 +85,13 @@ function officeFile(format,rows) {
     const printRows=printableSalesTable(rows.slice(start,end));
     const table=start>=0?`<w:tbl><w:tblPr><w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(side=>`<w:${side} w:val="single" w:sz="4" w:color="BDB6A2"/>`).join("")}</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>
     ${printRows.map((row,i)=>`<w:tr><w:trPr><w:cantSplit/>${i===0?"<w:tblHeader/>":""}</w:trPr>${row.map((value,j)=>`<w:tc><w:tcPr><w:tcW w:w="${widths[j]}" w:type="dxa"/>${i===0?'<w:shd w:fill="EAE5D8"/>':""}</w:tcPr>${paragraph(printable(value),i===0)}</w:tc>`).join("")}</w:tr>`).join("")}</w:tbl>`:"";
-    files.push([main,xml+`<w:document xmlns:w="${ns}"><w:body>${start>=0?regular(rows.slice(0,start),true)+paragraph("Đơn giá chưa VAT  ·  Đơn vị tiền: đồng")+table+regular(rows.slice(end)):regular(rows,true)}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:bottom="1134" w:left="1417" w:right="1134"/></w:sectPr></w:body></w:document>`]);
+    let drawing="";
+    if(logo){
+      files.push(["word/_rels/document.xml.rels",rel("image","media/logo."+logoExt)],
+        ["word/media/logo."+logoExt,Uint8Array.from(atob(logo.content),character=>character.charCodeAt(0))]);
+      drawing=formalLogoDrawing(logo,relationships);
+    }
+    files.push([main,xml+`<w:document xmlns:w="${ns}"><w:body>${drawing}${(options.heading||[]).map(line=>paragraph(line,true,false,"",true)).join("")}${start>=0?regular(rows.slice(0,start),true)+paragraph("Đơn giá chưa VAT  ·  Đơn vị tiền: đồng")+table+regular(rows.slice(end)):regular(rows,true)}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:bottom="1134" w:left="1417" w:right="1134"/></w:sectPr></w:body></w:document>`]);
   }
   return new Blob([zip(files)],{type:officeTypes[format]});
 }
@@ -102,7 +117,7 @@ function commercialRows(order,quote,contract=null) {
 }
 function printableSalesTable(rows) {
   return [["Hạng mục","ĐVT","SL","Đơn giá","VAT","Tiền VAT","Thành tiền"],
-    ...rows.slice(1).map(([name,unit,quantity,price,vat,,tax,total])=>[name,unit,quantity,price,vat===""?"":vat+"%",tax,total])];
+    ...rows.slice(1).map(([name,unit,quantity,price,vat,,tax,total])=>[name,unit,quantity,price,vat===""?"":String(vat).endsWith("%")||vat==="—"?vat:vat+"%",tax,total])];
 }
 function commercialHtml(order,quote,contract) {
   const rows=commercialRows(order,quote,contract);
