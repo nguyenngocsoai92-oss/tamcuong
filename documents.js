@@ -70,8 +70,12 @@ function officeFile(format,rows,options={}) {
     const end=rows.findIndex((row,i)=>i>start && !row.length);
     const regular=(items,heading=false)=>items.map((row,i)=>{
       if(row===options.partyMarker&&options.parties?.length){
-        const width=Math.floor(9300/options.parties.length);
-        return `<w:tbl><w:tblPr><w:tblW w:w="9300" w:type="dxa"/><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>${options.parties.map(()=>`<w:gridCol w:w="${width}"/>`).join("")}</w:tblGrid><w:tr><w:trPr><w:cantSplit/></w:trPr>${options.parties.map(([label,fields])=>`<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/></w:tcPr>${paragraph(label,true)}${fields.map(([key,value])=>paragraph(value,false,false,key)).join("")}</w:tc>`).join("")}</w:tr></w:tbl>`;
+        const cell=(width,body,styling="")=>`<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${styling}</w:tcPr>${body}</w:tc>`;
+        return options.parties.map(([label,fields])=>`<w:tbl><w:tblPr><w:tblW w:w="9300" w:type="dxa"/><w:tblBorders>
+        ${["top","left","bottom","right","insideH","insideV"].map(side=>`<w:${side} w:val="single" w:sz="4" w:color="C3C8C0"/>`).join("")}
+        </w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid><w:gridCol w:w="3100"/><w:gridCol w:w="6200"/></w:tblGrid>
+        <w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>${cell(9300,paragraph(label,true),'<w:gridSpan w:val="2"/><w:shd w:fill="EAEDE6"/>')}</w:tr>
+        ${fields.map(([key,value])=>`<w:tr><w:trPr><w:cantSplit/></w:trPr>${cell(3100,paragraph(key,true))}${cell(6200,paragraph(value))}</w:tr>`).join("")}</w:tbl>${paragraph("")}`).join("");
       }
       if(row===options.signatures||["Đại diện bên bán ký","Người lập báo giá"].includes(row[0])){
         const width=Math.floor(9300/row.length);
@@ -97,17 +101,9 @@ function officeFile(format,rows,options={}) {
 }
 function commercialRows(order,quote,contract=null) {
   const amounts=salesAmounts(quote.items,quote.discount,quote.tax);
-  const rows=[[contract?"HỢP ĐỒNG MUA BÁN / DỊCH VỤ":"BÁO GIÁ",contract?.id||quote.id],
-    ["Bản minh họa",contract?.final?"Bản cuối mẫu":"Mẫu nghiệp vụ"]];
-  if(contract || quoteIdentity(order,quote).mode!=="anonymous") rows.push(["Mã đơn hàng",order.id]);
-  if (contract) rows.push(["Bên bán",companyName(order.company)],["Khách hàng",order.customer],["Đại diện bên bán",contract.seller],["Đại diện bên mua",contract.buyer],
-    ["Địa chỉ bên bán",contract.sellerAddress],["Địa chỉ bên mua",contract.buyerAddress],
-    ["Mã số thuế bên bán",contract.sellerTax],["Mã số thuế bên mua",contract.buyerTax],
-    ["Báo giá nguồn",quote.id],["Điều 1. Phạm vi và giá trị",contract.scope],
-    ["Điều 2. Giao nhận và nghiệm thu",contract.delivery],["Điều 3. Thanh toán",contract.payment],
-    ["Điều 4. Bảo hành",contract.warranty],["Điều 5. Quyền và nghĩa vụ",contract.obligations||""],
-    ["Điều 6. Thay đổi, chấm dứt và tranh chấp",contract.disputes||""],["Điều 7. Hiệu lực",contract.effect]);
-  else rows.push(...quotePartyRows(order,quote),["Hiệu lực báo giá",date(quote.validUntil)],["Điều kiện báo giá",quote.terms||""]);
+  const doc=commercialForm(order,quote,contract);
+  const rows=[[doc.title,doc.ref],[nationalHeading],[nationalMotto],["Ngày lập",doc.issueDate],
+    ...doc.groups.flatMap(([label,entries])=>[[],[label],...entries]),...doc.references,...doc.details];
   rows.push([],["Hạng mục","ĐVT","SL","Giá chưa VAT (₫)","VAT (%)","Giá tính thuế (₫)","Tiền VAT (₫)","Tổng dòng (₫)"]);
   for (const item of amounts.lines) rows.push([item.name,item.unit,item.qty,item.price,item.vat??"",item.base,item.tax,item.total]);
   rows.push([],["Tạm tính (₫)",amounts.subtotal],["Chiết khấu (₫)",amounts.discount],["Tiền VAT (₫)",amounts.tax],["Tổng cộng (₫)",amounts.total]);
@@ -119,28 +115,16 @@ function printableSalesTable(rows) {
   return [["Hạng mục","ĐVT","SL","Đơn giá","VAT","Tiền VAT","Thành tiền"],
     ...rows.slice(1).map(([name,unit,quantity,price,vat,,tax,total])=>[name,unit,quantity,price,vat===""?"":String(vat).endsWith("%")||vat==="—"?vat:vat+"%",tax,total])];
 }
-function commercialHtml(order,quote,contract) {
-  const rows=commercialRows(order,quote,contract);
-  const [head,...rest]=rows;
-  const start=rows.findIndex(row=>row[0]==="Hạng mục"&&row.length===8);
-  const end=start+quote.items.length+1;
-  const [tableHead,...tableRows]=printableSalesTable(rows.slice(start,end));
-  const fields=(entries)=>entries.filter(r=>r.length&&r[1]!=="").map(([key,value])=>`<div ${/^Điều /.test(key)?'class="clause"':""}><b>${esc(key)}</b><span>${esc(typeof value==="number"?money(value):value)}</span></div>`).join("");
-  return `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(head[0])}</title>
-  <style>
-  @page{size:A4;margin:20mm 20mm 20mm 25mm}*{box-sizing:border-box}body{max-width:210mm;margin:18px auto;padding:12mm 18mm;background:white;color:#20221e;font:13pt/1.22 "Times New Roman",Times,serif}
-  header{text-align:center;border-top:2px solid #283c30;border-bottom:1px solid #bfb6a2;padding:7px 0}header small{font-size:12pt;letter-spacing:.07em;color:#51554b}h1{font-size:17pt;margin:4px 0}header strong{font-size:13pt}
-  .facts{margin:8px 0}.facts div{display:grid;grid-template-columns:40mm 1fr;gap:5px;border-bottom:1px solid #e5e1d6;padding:3px 4px;break-inside:avoid}
-  .facts .clause{display:block;border-bottom:0;padding:3px 0}.clause span{display:block}.facts span{white-space:pre-wrap;overflow-wrap:anywhere}
-  table{border-collapse:collapse;width:100%;font:13pt/1.13 "Times New Roman",Times,serif}td,th{padding:3px 4px;border:1px solid #c9c3b2;text-align:left}caption{text-align:right;font-size:12pt;margin-bottom:3px}th{background:#eeeade;font-weight:bold}thead{display:table-header-group}tr{break-inside:avoid}
-  td:nth-child(n+3){text-align:right}.totals{width:min(100%,83mm);margin:6px 0 0 auto}.totals div{grid-template-columns:1fr auto}.totals div:last-child{border-top:1px solid #283c30;font-weight:bold}
-  .sign{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;margin-top:12px;min-height:31mm;break-inside:avoid}.sign small{display:block;font-size:12pt;margin-top:3px}button{margin:7px 0;padding:5px 9px;font:inherit}
-  @media print{button{display:none}body{margin:0;padding:0;max-width:none}th{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style>
-  <header><small>MẪU THỬ NGHIỆM</small><h1>${esc(head[0])}</h1><strong>${esc(head[1])}</strong></header><button onclick="window.print()">In / Lưu PDF</button>
-  <section class="facts">${fields(rest.slice(0,start-1))}</section>
-  <table><caption>Đơn giá chưa VAT · Đơn vị tiền: đồng</caption><thead><tr>${tableHead.map(v=>`<th>${esc(v)}</th>`).join("")}</tr></thead><tbody>${tableRows.map(row=>`<tr>${row.map(v=>`<td>${esc(typeof v==="number"?number.format(v):v)}</td>`).join("")}</tr>`).join("")}</tbody></table>
-  <section class="facts totals">${fields(rows.slice(end+1,end+5))}</section>
-  ${contract?'<div class="sign"><div><b>Đại diện bên bán</b><small>Ký, ghi rõ họ tên</small></div><div><b>Đại diện bên mua</b><small>Ký, ghi rõ họ tên</small></div></div>':quoteSignature()}</html>`;
+function commercialForm(order,quote,contract){
+  const item=packs.sales.items.find(([id])=>id===(contract?"hop-dong":"bao-gia"));
+  const snapshot={...order,quotes:[{...quote,status:"accepted"}],contract:contract||order.contract};
+  return formalDocument(order,item,{snapshot},null,"sales");
+}
+function commercialHtml(order,quote,contract){
+  return formalHtml(commercialForm(order,quote,contract));
+}
+function commercialOffice(format,order,quote,contract){
+  return format==="docx"?formalWord(commercialForm(order,quote,contract)):officeFile(format,commercialRows(order,quote,contract));
 }
 function documentContext() {
   const order=secureOrder(selected.order);
@@ -160,7 +144,7 @@ function commercialExport(format) {
   if (!quote || (view==="contract"&&!contract)) return;
   const id=contract?.id||quote.id;
   if (officeTypes[format]) {
-    triggerDownload(officeFile(format,commercialRows(order,quote,contract)),id+"."+format);return;
+    triggerDownload(commercialOffice(format,order,quote,contract),id+"."+format);return;
   }
   if (format!=="pdf") return;
   const url=URL.createObjectURL(new Blob([commercialHtml(order,quote,contract)],{type:"text/html;charset=utf-8"}));
@@ -258,7 +242,7 @@ async function saveCommercialEmail(form,el) {
   for (const format of ["docx","xlsx"]) {
     const filename=id+"."+format;
     parts.push("--"+boundary,`Content-Type: ${officeTypes[format]}`,`Content-Disposition: attachment; filename="${filename}"`,
-      "Content-Transfer-Encoding: base64","",wrap(new Uint8Array(await officeFile(format,commercialRows(order,quote,contract)).arrayBuffer())));
+      "Content-Transfer-Encoding: base64","",wrap(new Uint8Array(await commercialOffice(format,order,quote,contract).arrayBuffer())));
   }
   if (pdfBytes) parts.push("--"+boundary,"Content-Type: application/pdf",`Content-Disposition: attachment; filename="${id}.pdf"`,"Content-Transfer-Encoding: base64","",wrap(pdfBytes));
   parts.push("--"+boundary+"--","");

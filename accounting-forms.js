@@ -29,30 +29,51 @@ const liveLegal=company=>data.legalProfiles?.[company]||{};
 const legalValue=(value,label)=>value||"["+label+"]";
 const formalBuying=(id,kind)=>kind==="buying"||id==="mua-hang";
 const formalExtras=(kind)=>supplementaryForms.filter(([id])=>["phu-luc","xuat"].includes(id)||(kind==="buying"?["mua-hang","chi"].includes(id):["thu","bao-hanh"].includes(id))).map(([id,title])=>[id,title,"Biểu mẫu bổ trợ",0]);
-function formDefaultFields(order,item,bundle){
+const partyTypes={business:"Doanh nghiệp",individual:"Cá nhân",household:"Hộ kinh doanh"};
+const normalizePartyType=value=>value==="retail"?"individual":Object.hasOwn(partyTypes,value)?value:"";
+function contractInstructions(buying,partnerType){
+  const seller=buying?"Bên B":"Bên A",buyer=buying?"Bên A":"Bên B";
+  return [
+    "Hai bên thỏa thuận trên cơ sở Bộ luật Dân sự và quy định liên quan. Hồ sơ kèm theo: [Số, ngày báo giá/đơn đặt hàng, bản vẽ, phụ lục].",
+    seller+" cung cấp cho "+buyer+" hàng hóa hoặc dịch vụ theo bảng hạng mục và [quy cách, tiêu chuẩn chất lượng, xuất xứ và phạm vi công việc]. Phát sinh chỉ thực hiện sau khi hai bên xác nhận bằng văn bản.",
+    "Đơn giá trong bảng là giá chưa VAT. Tổng giá trị bằng số: [Số tiền]; bằng chữ: [Số tiền bằng chữ]. Thuế và chi phí vận chuyển, lắp đặt: [ghi rõ mức áp dụng và khoản đã bao gồm]. Thay đổi giá được xác nhận bằng phụ lục.",
+    "Giao tại [địa điểm] vào [mốc thời gian]. Hai bên đối chiếu số lượng, chất lượng và hồ sơ kèm theo khi giao. Ghi kết quả, sai lệch và hạn khắc phục trong biên bản. Thời điểm chuyển quyền sở hữu và rủi ro: [thỏa thuận phù hợp pháp luật].",
+    buyer+" tạm ứng [tỷ lệ/số tiền] trước [mốc]. Thanh toán phần còn lại theo [từng đợt, số tiền, hạn, điều kiện thanh toán]. Hồ sơ thanh toán: [liệt kê]. Phương thức, tài khoản và chủ tài khoản thụ hưởng: [điền].",
+    seller+" giao đúng quy cách, số lượng và thời hạn, cung cấp chứng từ kèm theo. "+buyer+" bố trí người tiếp nhận, phối hợp kiểm tra và thanh toán theo Điều 5. Các bên thông báo kịp thời nếu có vướng mắc.",
+    "Bảo hành trong [thời hạn] kể từ [mốc]. Phạm vi, địa điểm, chi phí và thời hạn sửa đổi/trả hàng: [điền]. Tiếp nhận phản ánh tại [đầu mối, điện thoại, email], phản hồi trong [thời hạn]."+(partnerType==="individual"?" Nếu giao kết với người tiêu dùng, ghi thêm điều kiện đổi trả, cách tiếp nhận khiếu nại và thông tin về việc bảo vệ dữ liệu cá nhân.":""),
+    "Bên bị ảnh hưởng thông báo và phối hợp giảm thiểu thiệt hại. Phạt vi phạm nếu có thỏa thuận: [hành vi, mức và căn cứ tính trong giới hạn pháp luật áp dụng]. Bồi thường và miễn trách nhiệm được xác định theo thỏa thuận hợp pháp và quy định áp dụng.",
+    "Sửa đổi bằng phụ lục có xác nhận của hai bên. Căn cứ và thời hạn thông báo chấm dứt: [điền]. Khi chấm dứt, đối soát phần đã thực hiện, công nợ và hồ sơ bàn giao. Tranh chấp được thương lượng trước khi chuyển cơ quan có thẩm quyền theo pháp luật hoặc thỏa thuận hợp lệ.",
+    "Hiệu lực từ [ngày hoặc điều kiện]. Hợp đồng lập [số bản], mỗi bên giữ [số bản]. Danh mục phụ lục: [điền]. Các nghĩa vụ về thanh toán, bảo hành và giải quyết tranh chấp tiếp tục theo phần đã thỏa thuận.",
+  ];
+}
+function formDefaultFields(order,item,bundle,kind="sales"){
   const id=item[0],source=bundle?.snapshot||order;
   const quote=acceptedQuote(source);
   const contract=id==="hop-dong"?source.contract:null;
-  const purchase=formalBuying(id,["de-xuat","dat-mua","nhan","nhap","thanh-toan","doi-soat"].includes(id)?"buying":"sales");
+  const purchase=formalBuying(id,kind);
   const [code,fields,,isContract]=specification(id);
   const basis=contract?[quote?.id&&"Báo giá "+quote.id,contract.id&&"Hợp đồng "+contract.id].filter(Boolean).join(" · "):"";
   const contractValues=[basis,contract?.scope,"",contract?.delivery,contract?.payment,contract?.obligations,contract?.warranty,"",contract?.disputes,contract?.effect];
   const counterpart=contract||{};
   const identity=quoteIdentity(source,quote);
   const anonymous=id==="bao-gia"&&identity.mode==="anonymous";
-  const customer=identity.kind==="business"?identity.business:identity.customer||source.customer;
+  const customer=["business","household"].includes(identity.kind)?identity.business:identity.customer||source.customer;
+  const partnerType=purchase?"":normalizePartyType(identity.kind);
+  const instructions=isContract?contractInstructions(purchase,partnerType):[];
   return [
     ["ref","Số hiệu",id==="hop-dong"&&contract?.id||id==="bao-gia"&&quote?.id||(anonymous?"BG-MAU":`${code}-${source.id}`)],
-    ["issueDate","Ngày lập / ký (ngày/tháng/năm)",date(bundle?.createdAt||dayInVietnam())],
-    ["partyName","Tên bên đối tác",!purchase&&!anonymous?customer:""],
+    ["issueDate","Ngày lập / ký (ngày/tháng/năm)",new Intl.DateTimeFormat("vi-VN",{day:"2-digit",month:"2-digit",year:"numeric",timeZone:"Asia/Ho_Chi_Minh"}).format(new Date(bundle?.createdAt||dayInVietnam()))],
+    ["partyType","Loại Bên B",partnerType],
+    ["partyName","Tên đăng ký hoặc họ tên Bên B",!purchase&&!anonymous?customer:""],
     ["partyAddress","Địa chỉ bên đối tác",purchase||anonymous?"":counterpart.buyerAddress||identity.address||""],
     ["partyTax","Mã số thuế bên đối tác (nếu có)",purchase?"":counterpart.buyerTax||identity.taxId||""],
     ["partyRepresentative","Đại diện / Người liên hệ bên đối tác",purchase?"":counterpart.buyer||identity.person||""],
-    ["partyPosition","Chức vụ bên đối tác",""],
+    ["partyPosition","Chức vụ / Tư cách ký của Bên B",""],
+    ["partyRegistration","Số đăng ký hộ kinh doanh (nếu áp dụng)",""],
     ["partyAuthority","Căn cứ đại diện bên đối tác (nếu có)",""],
     ["partyContact","Điện thoại / Email bên đối tác",purchase?"":[identity.phone,identity.email].filter(Boolean).join(" · ")],
     ["partyBank","Tài khoản / Ngân hàng bên đối tác",""],
-    ...fields.map((label,index)=>["detail"+index,isContract?`Điều ${index+1}. ${label}`:label,isContract?contractValues[index]||"":id==="bao-gia"&&index===0&&quote?.validUntil?date(quote.validUntil):""]),
+    ...fields.map((label,index)=>["detail"+index,isContract?`Điều ${index+1}. ${label}`:label,isContract?contractValues[index]||instructions[index]:id==="bao-gia"&&index===0&&quote?.validUntil?date(quote.validUntil):id==="bao-gia"&&index===3?quote?.terms||"":""]),
     ["lineNote","Chi tiết hạng mục (mỗi dòng: tên | ĐVT | số lượng | đơn giá | thuế %; để trống để dùng dữ liệu nguồn)",""],
   ].filter(([key])=>!anonymous||!key.startsWith("party"));
 }
@@ -60,17 +81,28 @@ function formalDocument(order,item,bundle,edit,kind){
   const source=bundle?.snapshot||order,id=item[0],quote=acceptedQuote(source),profile=bundle?.legalProfile||liveLegal(order.company);
   const identity=quoteIdentity(source,quote),anonymous=id==="bao-gia"&&identity.mode==="anonymous";
   const [, ,signatures,isContract]=specification(id);
-  const fields=Object.fromEntries(formEditableFields(order,item,bundle,edit).map(([key,label,value])=>[key,[label,value]]));
-  const partyLabels={partyName:"Tên đơn vị / cá nhân",partyAddress:"Địa chỉ",partyTax:"Mã số thuế (nếu có)",partyRepresentative:"Đại diện / Đầu mối",partyPosition:"Chức vụ",partyAuthority:"Căn cứ đại diện (nếu có)",partyContact:"Điện thoại / Email",partyBank:"Tài khoản / Ngân hàng"};
-  const knownSeller=kind==="sales"?{tax:source.contract?.sellerTax||identity.sellerTax,address:source.contract?.sellerAddress||identity.sellerAddress,representative:source.contract?.seller,phone:identity.sellerPhone,email:identity.sellerEmail}:{};
-  const left=Object.entries(legalLabels).filter(([key])=>!["place","slogan"].includes(key)).map(([key,label])=>[label,legalValue(profile[key]||knownSeller[key]||(key==="name"?companyName(order.company)+" (tên hiển thị)":""),label)]);
-  const right=Object.entries(partyLabels).map(([key,label])=>[label,legalValue(fields[key]?.[1],label)]);
+  const fields=Object.fromEntries(formEditableFields(order,item,bundle,edit,kind).map(([key,label,value])=>[key,[label,value]]));
+  const partyType=normalizePartyType(fields.partyType?.[1]);
+  const partyLabels={
+    partyName:partyType==="individual"?"Họ và tên":partyType==="household"?"Tên hộ kinh doanh":"Tên đăng ký / Họ tên",
+    partyAddress:"Địa chỉ",partyTax:"Mã số thuế (nếu áp dụng)",partyRepresentative:partyType==="household"?"Chủ hộ / Người được ủy quyền":"Đại diện / Đầu mối",
+    partyPosition:"Chức vụ / Tư cách ký",partyRegistration:"Số đăng ký hộ kinh doanh",partyAuthority:"Căn cứ đại diện / Ủy quyền",
+    partyContact:"Điện thoại / Email",partyBank:"Tài khoản / Ngân hàng",
+  };
   const buying=formalBuying(id,kind);
-  const dual=!(["de-xuat","nhap","xuat"].includes(id));
-  const groups=anonymous?[]:[
-    [isContract?(buying?"BÊN A · BÊN MUA":"BÊN A · BÊN BÁN"):"ĐƠN VỊ LẬP",left],
-    ...(dual?[[isContract?(buying?"BÊN B · BÊN BÁN":"BÊN B · BÊN MUA"):"ĐƠN VỊ / CÁ NHÂN LIÊN QUAN",right]]:[]),
-  ];
+  const knownSeller=!buying?{tax:source.contract?.sellerTax||identity.sellerTax,address:source.contract?.sellerAddress||identity.sellerAddress,representative:source.contract?.seller,phone:identity.sellerPhone,email:identity.sellerEmail}:{};
+  const left=Object.entries(legalLabels).filter(([key])=>!["place","slogan"].includes(key)).map(([key,label])=>[label,legalValue(profile[key]||knownSeller[key]||(key==="name"?companyName(order.company)+" (tên hiển thị)":""),label)]);
+  const right=[["Loại Bên B",partyTypes[partyType]||"[Doanh nghiệp / Cá nhân / Hộ kinh doanh]"],
+    ...Object.entries(partyLabels).filter(([key])=>key==="partyRegistration"?partyType==="household":partyType!=="individual"||!["partyPosition","partyRepresentative"].includes(key)||!!fields[key]?.[1])
+      .map(([key,label])=>[label,legalValue(fields[key]?.[1],label)])];
+  const roles={
+    "bao-gia":["Bên báo giá","Khách hàng"],"hop-dong":["Bên bán","Bên mua"],"mua-hang":["Bên mua","Nhà cung cấp"],
+    "giao":["Bên giao","Bên nhận"],"ban-giao":["Bên giao","Bên nhận"],"dat-mua":["Bên đặt hàng","Nhà cung cấp"],
+    "nhan":["Bên nhận","Bên giao"],"nhap":["Bên nhập kho","Bên giao"],"xuat":["Bên xuất kho","Bên nhận"],
+    "thu":["Bên thu tiền","Bên nộp tiền"],"chi":["Bên chi tiền","Bên nhận tiền"],"bao-hanh":["Bên bảo hành","Khách hàng"],
+  };
+  const [roleA,roleB]=roles[id]||(buying?["Bên mua","Nhà cung cấp"]:["Công ty","Khách hàng"]);
+  const groups=anonymous?[]:[["BÊN A · "+roleA.toUpperCase(),left],["BÊN B · "+roleB.toUpperCase(),right]];
   const explicit=parseFormalLines(fields.lineNote[1]).filter(Boolean);
   const purchase=captureFormalPurchases(order)[id]||[];
   const sourceLines=["bao-gia","hop-dong","mua-hang","dat-mua","de-xuat"].includes(id);
@@ -87,10 +119,10 @@ function formalDocument(order,item,bundle,edit,kind){
     headings,items,totals,signatures};
 }
 
-function formEditableFields(order,item,bundle,edit){
+function formEditableFields(order,item,bundle,edit,kind="sales"){
   const oldKeys=item[0]==="hop-dong"?{partyAddress:"buyerAddress",partyTax:"buyerTax",partyRepresentative:"buyer",
     detail1:"scope",detail3:"delivery",detail4:"payment",detail5:"obligations",detail6:"warranty",detail8:"disputes",detail9:"effect"}:{detail0:"content"};
-  return formDefaultFields(order,item,bundle).map(([key,label,value])=>[key,label,edit?.fields?.[key]??edit?.fields?.[oldKeys[key]]??value]);
+  return formDefaultFields(order,item,bundle,kind).map(([key,label,value])=>[key,label,edit?.fields?.[key]??edit?.fields?.[oldKeys[key]]??value]);
 }
 const nationalHeading="CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM";
 const nationalMotto="Độc lập - Tự do - Hạnh phúc";
@@ -99,7 +131,7 @@ function formalHtml(doc){
   const pair=([key,value])=>`<div class="pair"><b>${esc(key)}</b><span>${esc(value)}</span></div>`;
   return `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(doc.title)}</title>
   <style>
-  @page{size:A4;margin:16mm 16mm 17mm 21mm}*{box-sizing:border-box}body{font:13pt/1.22 "Times New Roman",Times,serif;background:#fff;color:#20251e;max-width:177mm;margin:16px auto;padding:0 8px}h1,h2,p{margin:0}header,.groups,.signatures{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}header{border-bottom:1px solid #66736a;padding-bottom:8px;align-items:center}header img{display:block;width:auto;max-width:42mm;height:auto;max-height:17mm;margin-bottom:4px}header .national{text-align:center}header .national p{font-size:12pt;line-height:1.18}header .national strong{display:block;margin-top:3px}header small{font-size:12pt}h1{text-align:center;font-size:17pt;margin-top:9px}h2{font-size:13pt} .meta{text-align:center;margin:4px 0 9px}.meta small{font-size:12pt}.groups{margin:6px 0}.group{border:1px solid #b8bdb5;padding:6px}.group h2{color:#233e31;margin-bottom:3px}.pair{display:grid;grid-template-columns:39% 1fr;gap:4px;margin:2px 0;break-inside:avoid}.pair span,.detail span{white-space:pre-wrap;overflow-wrap:anywhere}.references{border-block:1px solid #c9cdc6;padding:3px 0;margin:7px 0}.detail{padding:4px 0;break-inside:avoid}.detail b{display:block}table{width:100%;border-collapse:collapse;margin:6px 0;font:inherit}thead{display:table-header-group}th,td{border:1px solid #a9b2a9;padding:3px 4px;text-align:left}th{background:#efefe7}td:nth-child(n+3){text-align:right;white-space:nowrap}tr{break-inside:avoid}.totals{margin:5px 0 6px auto;width:min(100%,88mm)}.totals .pair{grid-template-columns:1fr auto}.totals .pair:last-child{border-top:1px solid #66736a;padding-top:3px;font-weight:bold}.signatures{text-align:center;grid-template-columns:repeat(var(--signers),minmax(0,1fr));margin-top:12px;min-height:29mm;break-inside:avoid}.signatures span{display:block;font-size:12pt}.print{display:block;margin:5px 0 5px auto;font:inherit}.anonymous{display:block}.group:only-child{grid-column:1/-1}@media(max-width:570px){.groups{grid-template-columns:1fr}.sheet-table{overflow:auto}}@media print{body{max-width:none;margin:0;padding:0} .print{display:none}th{print-color-adjust:exact}}
+  @page{size:A4;margin:16mm 16mm 17mm 21mm}*{box-sizing:border-box}body{font:13pt/1.22 "Times New Roman",Times,serif;background:#fff;color:#20251e;max-width:177mm;margin:16px auto;padding:0 8px}h1,h2,p{margin:0}header,.groups,.signatures{display:grid;gap:8px;grid-template-columns:repeat(2,minmax(0,1fr))}header{border-bottom:1px solid #66736a;padding-bottom:8px;align-items:center}header img{display:block;width:auto;max-width:42mm;height:auto;max-height:17mm;margin-bottom:4px}header .national{text-align:center}header .national p{font-size:12pt;line-height:1.18}header .national strong{display:block;margin-top:3px}header small{font-size:12pt}h1{text-align:center;font-size:17pt;margin-top:9px}h2{font-size:13pt} .meta{text-align:center;margin:4px 0 9px}.meta small{font-size:12pt}.groups{margin:6px 0;grid-template-columns:1fr}.group{border:1px solid #b8bdb5;padding:6px;break-inside:avoid}.group h2{color:#233e31;background:#efefe7;margin:-6px -6px 4px;padding:4px 6px}.pair{display:grid;grid-template-columns:34% 1fr;gap:4px;margin:2px 0;break-inside:avoid}.pair span,.detail span{white-space:pre-wrap;overflow-wrap:anywhere}.references{border-block:1px solid #c9cdc6;padding:3px 0;margin:7px 0}.detail{padding:4px 0;break-inside:avoid}.detail b{display:block}table{width:100%;border-collapse:collapse;margin:6px 0;font:inherit}thead{display:table-header-group}th,td{border:1px solid #a9b2a9;padding:3px 4px;text-align:left}th{background:#efefe7}td:nth-child(n+3){text-align:right;white-space:nowrap}tr{break-inside:avoid}.totals{margin:5px 0 6px auto;width:min(100%,88mm)}.totals .pair{grid-template-columns:1fr auto}.totals .pair:last-child{border-top:1px solid #66736a;padding-top:3px;font-weight:bold}.signatures{text-align:center;grid-template-columns:repeat(var(--signers),minmax(0,1fr));margin-top:12px;min-height:29mm;break-inside:avoid}.signatures span{display:block;font-size:12pt}.print{display:block;margin:5px 0 5px auto;font:inherit}.anonymous{display:block}.group:only-child{grid-column:1/-1}@media(max-width:570px){.groups{grid-template-columns:1fr}.sheet-table{overflow:auto}}@media print{body{max-width:none;margin:0;padding:0} .print{display:none}th{print-color-adjust:exact}}
   </style><button class="print" onclick="window.print()">In / Lưu PDF</button><header class="${doc.anonymous?"anonymous":""}">
   ${doc.anonymous?"":`<div>${logo?`<img alt="Logo doanh nghiệp" src="data:${logo.type};base64,${logo.content}">`:""}<strong>${esc(doc.profile.name||doc.header)}</strong>${doc.profile.slogan?`<p><small>${esc(doc.profile.slogan)}</small></p>`:""}</div>`}
   <div class="national"><p><b>${nationalHeading}</b></p><strong>${nationalMotto}</strong></div></header>

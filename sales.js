@@ -25,16 +25,16 @@ function quoteIdentityFields(identity={}) {
     <option value="named" ${identity.mode!=="anonymous"?"selected":""}>Loại 2 · Có thông tin bên bán và khách hàng</option>
   </select></label>
   <div class="wide identity-block form-grid" data-identity="named">
-    <label class="field wide">Loại khách hàng<select class="input" name="customer-kind"><option value="retail">Khách lẻ</option><option value="business" ${identity.kind==="business"?"selected":""}>Doanh nghiệp</option></select></label>
+    <label class="field wide">Loại khách hàng<select class="input" name="customer-kind"><option value="retail">Cá nhân</option><option value="business" ${identity.kind==="business"?"selected":""}>Doanh nghiệp</option><option value="household" ${identity.kind==="household"?"selected":""}>Hộ kinh doanh</option></select></label>
     <div class="wide identity-block form-grid" data-identity="retail">${field("Họ tên khách hàng","customer",100,"text",true)}</div>
-    <div class="wide identity-block form-grid" data-identity="business">${field("Tên công ty khách hàng","business",160,"text",true)}${field("Mã số thuế khách hàng","taxId",24,"text",true)}${field("Người đặt hàng","person",100,"text",true)}<div class="wide actions tax-actions">${careButton("Điền từ danh bạ","tax")}<a href="${taxRegistry}" target="_blank" rel="noopener">Tra trên cổng Cục Thuế</a></div><p class="wide muted" data-tax-status role="status"></p></div>
+    <div class="wide identity-block form-grid" data-identity="business">${field("Tên đăng ký doanh nghiệp / hộ kinh doanh","business",160,"text",true)}${field("Mã số thuế khách hàng","taxId",24,"text",true)}${field("Người đặt hàng","person",100,"text",true)}<div class="wide actions tax-actions">${careButton("Điền từ danh bạ","tax")}<a href="${taxRegistry}" target="_blank" rel="noopener">Tra trên cổng Cục Thuế</a></div><p class="wide muted" data-tax-status role="status"></p></div>
     ${field("Địa chỉ khách hàng","address",180,"text",true)}${field("Số điện thoại","phone",30,"tel",true)}${field("Email","email",150,"email",true)}
     ${field("Địa chỉ bên bán","sellerAddress",180)}${field("Mã số thuế bên bán","sellerTax",24)}${field("Điện thoại bên bán","sellerPhone",30,"tel")}${field("Email bên bán","sellerEmail",150,"email")}
   </div></div>`;
 }
 function syncQuoteIdentity(form) {
   const named=form.elements["quote-mode"].value==="named";
-  const business=form.elements["customer-kind"].value==="business";
+  const business=["business","household"].includes(form.elements["customer-kind"].value);
   for(const block of form.querySelectorAll("[data-identity]")) {
     const key=block.dataset.identity;
     block.hidden=!(named&&(key==="named"||(key==="business"?business:!business)));
@@ -47,18 +47,19 @@ function syncQuoteIdentity(form) {
 function readQuoteIdentity(form) {
   if(form.get("quote-mode")==="anonymous") return {mode:"anonymous"};
   const get=key=>String(form.get(key)||"").trim();
-  const kind=get("customer-kind")==="business"?"business":"retail";
-  const keys=["address","phone","email","sellerAddress","sellerTax","sellerPhone","sellerEmail",...(kind==="business"?["business","taxId","person"]:["customer"])];
+  const kind=["business","household"].includes(get("customer-kind"))?get("customer-kind"):"retail";
+  const registered=kind!=="retail";
+  const keys=["address","phone","email","sellerAddress","sellerTax","sellerPhone","sellerEmail",...(registered?["business","taxId","person"]:["customer"])];
   const identity={mode:"named",kind,...Object.fromEntries(keys.map(key=>[key,get(key)]))};
-  if(kind==="business"?!["business","taxId","person","address","phone","email"].every(key=>identity[key]):!identity.customer) return null;
+  if(registered?!["business","taxId","person","address","phone","email"].every(key=>identity[key]):!identity.customer) return null;
   return identity;
 }
 function quotePartyRows(order,quote) {
   const identity=quoteIdentity(order,quote);
   if(identity.mode==="anonymous") return [];
-  return [["Bên bán",companyName(order.company)],["Địa chỉ bên bán",identity.sellerAddress],["Mã số thuế bên bán",identity.sellerTax],
-    ["Điện thoại bên bán",identity.sellerPhone],["Email bên bán",identity.sellerEmail],["Loại khách hàng",identity.kind==="business"?"Doanh nghiệp":"Khách lẻ"],
-    [identity.kind==="business"?"Công ty khách hàng":"Khách hàng",identity.kind==="business"?identity.business:identity.customer],
+  return [["Bên A · Bên bán",companyName(order.company)],["Địa chỉ bên bán",identity.sellerAddress],["Mã số thuế bên bán",identity.sellerTax],
+    ["Điện thoại bên bán",identity.sellerPhone],["Email bên bán",identity.sellerEmail],["Loại khách hàng",partyTypes[normalizePartyType(identity.kind)]||"Cá nhân"],
+    ["Bên B · Khách hàng",identity.business||identity.customer],
     ["Mã số thuế khách hàng",identity.taxId],["Người đặt hàng",identity.person],["Địa chỉ khách hàng",identity.address],
     ["Điện thoại khách hàng",identity.phone],["Email khách hàng",identity.email]].filter(([,value])=>value);
 }

@@ -3,7 +3,7 @@
 const accountingFileLimit=200*1024;
 const accountingEdits=(key)=>data.accountingEdits?.[key]||{};
 const accountingVersions=key=>data.accountingVersions?.[key]||[];
-const accountingFields=formEditableFields;
+const accountingFields=(order,item,bundle,edit)=>formEditableFields(order,item,bundle,edit,selected.kind);
 function accountingWorkbench(order,template,bundle){
   const key=packKey(order,selected.kind);
   const editable=session.role==="maker"&&!["pending","approved"].includes(bundle?.status);
@@ -40,8 +40,8 @@ function accountingEditDialog(id){
   const working=edit?.workingFile?btn("Tải Word đã tải lên","account-doc-file",{value:id+"|workingFile",style:"light compact",icon:"down"}):"";
   const final=edit?.finalFile?btn("Tải PDF final","account-doc-file",{value:id+"|finalFile",style:"light compact",icon:"down"}):"";
   const files=`<div class="actions">${working}${final}</div>`;
-  const content=fields.map(([name,label,value])=>editable?(name.startsWith("detail")||name==="lineNote"?workforceNote(label,name,value,false):workforceField(label,name,{value,required:false,max:200})):
-    `<p><strong>${esc(label)}</strong></p><p class="care-copy">${esc(value||"—")}</p>`).join("");
+  const content=fields.map(([name,label,value])=>editable?(name==="partyType"?`<label class="field">Loại Bên B<select class="input" name="partyType"><option value="">Chọn</option>${Object.entries(partyTypes).map(([id,label])=>`<option value="${id}" ${id===value?"selected":""}>${label}</option>`).join("")}</select></label>`:name.startsWith("detail")||name==="lineNote"?workforceNote(label,name,value,false):workforceField(label,name,{value,required:false,max:200})):
+    `<p><strong>${esc(label)}</strong></p><p class="care-copy">${esc((name==="partyType"?partyTypes[value]:value)||"—")}</p>`).join("");
   openDialog(esc(item[1]),editable?`<form id="account-editor" data-item="${esc(id)}" data-key="${esc(key)}">
     <p class="muted">${esc(order.id)} · Bản làm việc của kế toán</p><div class="form-grid">${content}
     <label class="field">Word đã chỉnh (.docx)<input class="input" type="file" name="workingFile" accept=".docx"></label>

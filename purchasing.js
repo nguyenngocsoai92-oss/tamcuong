@@ -74,14 +74,18 @@ function stockPrint(kind,id) {
   const move=kind==="movement"?stockMoves().find(row=>row.ref===id):null;
   const value=po||move;
   if(!value)return;
-  const title=po?(po.status==="requested"?"ĐỀ XUẤT MUA VẬT TƯ":"ĐƠN MUA VẬT TƯ"):move.type==="in"?"PHIẾU NHẬP KHO":"PHIẾU XUẤT KHO";
-  const rows=[["Đơn vị",companyName(value.company)],["Số phiếu",po?.id||move.ref],["Ngày",date(value.at)],["Đơn hàng",value.order],["Nhà cung cấp / Diễn giải",po?.vendor||move.party],["Đơn mua nguồn",move?.purchase]];
-  const tax=po||move?.type==="in"?`<p>Đơn giá chưa VAT ${money(value.price)} · VAT ${value.vat}% · Tổng thanh toán ${money(value.price*value.qty+Math.round(value.price*value.qty*value.vat/100))}</p>`:"";
-  const html=`<!doctype html><html lang="vi"><meta charset="utf-8"><title>${title}</title><style>@page{size:A4;margin:20mm 20mm 20mm 25mm}body{font:13pt/1.22 "Times New Roman",Times,serif;max-width:165mm;margin:20px auto;padding:0 10px;color:#222}h1{text-align:center;font-size:17pt;margin:7px 0}header{border-block:1px solid #827960;text-align:center;padding:6px}p{margin:5px 0}table{width:100%;border-collapse:collapse;margin:8px 0}th,td{padding:5px;border:1px solid #c4bcaa;text-align:left}th{background:#ede8dc}.sign{display:flex;justify-content:space-around;text-align:center;min-height:32mm;margin-top:12px;break-inside:avoid}button{font:inherit}@media print{body{margin:0;padding:0}button{display:none}}</style>
-  <header><small>MẪU THỬ NGHIỆM</small><h1>${title}</h1></header><button onclick="window.print()">In / Lưu PDF</button>
-  ${rows.filter(([,v])=>v).map(([label,v])=>`<p><b>${label}</b> · ${esc(v)}</p>`).join("")}
-  <table><tr><th>Vật tư</th><th>ĐVT</th><th>Số lượng</th></tr><tr><td>${stockSamples[value.index].name}</td><td>${stockSamples[value.index].unit}</td><td>${value.qty}</td></tr></table>
-  ${tax}<div class="sign"><div><b>Người lập</b><br>Ký, ghi rõ họ tên</div><div><b>${po?"Người duyệt":move.type==="in"?"Thủ kho / Người giao":"Thủ kho / Người nhận"}</b><br>Ký, ghi rõ họ tên</div></div></html>`;
+  const idKey=po?(po.status==="requested"?"de-xuat":"dat-mua"):move.type==="in"?"nhap":"xuat";
+  const item=[...packs.buying.items,...formalExtras("buying")].find(([key])=>key===idKey);
+  const stock=stockSamples[value.index];
+  const order=secureOrder(value.order)||{company:value.company,id:value.order||"—",title:"Nghiệp vụ kho",items:[]};
+  const fields={ref:po?.id||move.ref,issueDate:date(value.at),partyName:po?.vendor||move.party,
+    detail0:po?"Vật tư theo đơn mua":"Phiếu thao tác kho",detail1:move?.purchase||value.order||"Chưa có mã liên kết",
+    lineNote:[stock.name,stock.unit,value.qty,value.price||0,value.vat||0].join(" | ")};
+  const form=formalDocument(order,item,null,{fields},"buying");
+  if(move?.type==="out"){
+    form.headings=form.headings.slice(0,3);form.items=form.items.map(row=>row.slice(0,3));form.totals=[];
+  }
+  const html=formalHtml(form);
   const blob=new Blob([html],{type:"text/html;charset=utf-8"}), url=URL.createObjectURL(blob);
   if(!window.open(url,"_blank"))triggerDownload(blob,(po?.id||move.ref)+".html");
   setTimeout(()=>URL.revokeObjectURL(url),60000);
