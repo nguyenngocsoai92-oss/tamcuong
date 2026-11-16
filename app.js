@@ -311,11 +311,12 @@ function accountingPage() {
   const documents = pack.items.map(([id,label,labelType,minimum])=>{
     const source=locked&&bundle.snapshot?bundle.snapshot:o;
     const reached=o.step>=minimum;
-    const available=hasSource(source,id);
+    const edited=(locked?bundle?.edits:accountingEdits(packKey(o,kind)))?.[id];
+    const available=hasSource(source,id)||!!edited?.finalFile;
     const ready = (reached&&(!isNewFlow(o)||available)) || (locked && chosen.has(id));
     const file=evidenceFor(source,id);
     return `<div class="document"><label><input type="checkbox" name="doc" value="${id}" ${(chosen.has(id)||(!bundle?.docs?.length&&available)) && ready?"checked":""} ${!ready||locked||reviewer?"disabled":""}> <span>${label} <small>${available ? "Đã có nguồn"+(file?" · "+esc(file.ref):"") : !reached?"Chờ hồ sơ đầu ra":isNewFlow(o)?"Thiếu chứng từ nguồn":labelType+" · Hồ sơ minh họa cũ"}</small></span></label>
-    <div class="actions">${file?sourceDownload(o,file):ready?btn("Xem chứng từ","document",{value:id,style:"light compact"}):""}
+    <div class="actions">${edited?.finalFile?btn("PDF final","account-doc-file",{value:id+"|finalFile",style:"quiet compact",icon:"down"}):""}${file?sourceDownload(o,file):ready?btn("Xem chứng từ","document",{value:id,style:"light compact"}):""}
     ${reached&&!locked&&!reviewer&&!(id==="bao-gia"&&acceptedQuote(o))?btn(file?"Thay tệp":"Thêm PDF nguồn","upload-source",{value:id,style:"light compact"}):""}</div></div>`;
   }).join("");
   const actions = reviewer
@@ -330,6 +331,7 @@ function accountingPage() {
     `${packMilestones(bundle)}
     <div class="notice"><strong>Hồ sơ ${esc(o.id)}.</strong> ${linkBtn("Đơn hàng",orderRoute(o),{style:"quiet compact",icon:"link"})}
     ${acceptedQuote(o)?linkBtn("Báo giá chấp thuận",quoteRoute(o),{style:"quiet compact",icon:"doc"})+linkBtn("Hợp đồng",contractRoute(o),{style:"quiet compact",icon:"doc"}):""}
+    ${btn("Hợp đồng và chứng từ mẫu","account-workbench",{style:"light compact",icon:"doc"})}
     ${bundle?.archivedAt?`<span>${chip("Đã lưu trữ mẫu")} · ${when(bundle.archivedAt)}</span>`:""}</div>
     <div class="pack-grid"><section class="panel panel-pad"><h2>Danh mục chứng từ</h2>${controls}
     <div class="pack-meta"><div class="actions">${chip(packStatus(bundle?.status),bundle?.status==="returned"?"warn":"")}${stateChip(o)}</div>${linkBtn("Mở hồ sơ nguồn",orderRoute(o),{style:"quiet compact",icon:"link"})}</div>
@@ -347,7 +349,7 @@ function accountingPage() {
     ${emailAction?`<div class="actions dispatch-actions">${emailAction}</div>`:""}
     ${lastDispatch?`<ul class="sublist"><li>${chip("Đã mô phỏng gửi")}<small>${esc(lastDispatch.recipient)} · ${when(lastDispatch.at)}</small></li></ul>`:""}
     </section><section class="panel panel-pad"><h2>Nhật ký xử lý</h2><ul class="sublist">${packHistory(bundle)}</ul>
-    <hr class="rule"><h2>Hồ sơ nguồn</h2><ul class="sublist"><li>${esc(o.id)} · ${esc(o.title)}<small>${companyName(o.company)} · ${pack.label}</small></li></ul></section></div></div>`+archiveRegister(list);
+    <hr class="rule"><h2>Hồ sơ nguồn</h2><ul class="sublist"><li>${esc(o.id)} · ${esc(o.title)}<small>${companyName(o.company)} · ${pack.label}</small></li></ul></section></div></div>`+accountingWorkbench(o,pack,bundle)+archiveRegister(list);
 }
 function archiveRegister(orders) {
   const archived=orders.flatMap(order=>Object.keys(packs).flatMap(kind=>{
@@ -368,7 +370,8 @@ function currentPack() {
 }
 function documentDetails(order, item, bundle) {
   const [id,title] = item;
-  const beingBought = selected.kind === "buying";
+  const packKind = packs.buying.items.some(([key])=>key===id)?"buying":"sales";
+  const beingBought = packKind === "buying";
   const subject = beingBought ? "Nhà cung cấp mẫu A" : order.customer;
   const source = bundle?.snapshot ?? order;
   const samplePurchase = Math.round(source.total * .38);
@@ -384,10 +387,11 @@ function documentDetails(order, item, bundle) {
   const sourceStage = Math.max(0,item[3]-1);
   const sourceReference = source.records?.[sourceStage]?.reference || (source.step>=item[3] ? source.id + "-B" + String(sourceStage+1).padStart(2,"0") : "Chờ hồ sơ đầu ra");
   return { title, rows:[
-    ["Số hiệu mẫu",`DEMO-${order.id}-${packs[selected.kind].prefix}-${item[0].toUpperCase()}`],
+    ["Số hiệu mẫu",bundle?.edits?.[id]?.fields?.ref||`DEMO-${order.id}-${packs[packKind].prefix}-${item[0].toUpperCase()}`],
     ["Ngày lập bộ mẫu",date(bundle?.createdAt || "2026-11-16")],
     ["Công ty lập",companyName(order.company) + " (minh họa)"], ["Đối tác",subject+" (giả định)"],
-    ["Hồ sơ liên quan",source.id+" · "+source.title], ["Tham chiếu hồ sơ nguồn",sourceReference], ["Nội dung",title+" cho hồ sơ "+source.id],
+    ["Hồ sơ liên quan",source.id+" · "+source.title], ["Tham chiếu hồ sơ nguồn",sourceReference], ["Nội dung",bundle?.edits?.[id]?.fields?.content||title+" cho hồ sơ "+source.id],
+    ...(bundle?.edits?.[id]?.fields?.note?[["Ghi chú",bundle.edits[id].fields.note]]:[]),
     ...facts,
     ["Người lập",bundle?.maker || "Chờ lập"], ["Người duyệt",bundle?.reviewer || "Chờ duyệt"],
     ["Chữ ký", "Chỗ dành cho người có thẩm quyền ký khi sử dụng mẫu thật"],
@@ -407,7 +411,7 @@ function documentFile(order,item,bundle) {
   const source=bundle?.snapshot ?? order;
   const quote=acceptedQuote(source);
   if (quote&&item[0]==="bao-gia") return commercialHtml(source,quote);
-  if (quote&&item[0]==="hop-dong"&&source.contract?.final) return commercialHtml(source,quote,source.contract);
+  if (quote&&item[0]==="hop-dong"&&(source.contract?.final||bundle?.edits?.[item[0]]?.fields)) return commercialHtml(source,quote,{id:source.id+"-HD-MAU",...source.contract,...bundle?.edits?.[item[0]]?.fields});
   const {title,rows} = documentDetails(order,item,bundle);
   return `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(title)}</title>
   <style>@page{size:A4;margin:20mm 20mm 20mm 25mm}body{max-width:165mm;margin:26px auto;padding:0 12px;font:13pt/1.25 "Times New Roman",Times,serif;color:#192b25}header{border-top:5px solid #1d624e;border-bottom:1px solid #d3dfd5;padding:17px 0 12px}h1{font-size:17pt;margin:6px 0 0}dl>div{display:grid;grid-template-columns:minmax(140px,31%) 1fr;gap:10px;padding:9px 2px;border-bottom:1px solid #e3eae4;break-inside:avoid}dt{font-weight:bold;color:#345b4b}dd{margin:0;overflow-wrap:anywhere}.demo{font-size:11px;color:#754516;font-weight:bold;font-variant:small-caps}.company{font-size:12px;color:#376451;font-weight:bold}footer{margin-top:14px;color:#506359;font-size:12pt}@media(max-width:520px){dl>div{grid-template-columns:1fr;gap:2px}}@media print{body{margin:0}footer{color:#333}}</style>
@@ -461,6 +465,8 @@ function packageFiles(order,bundle,template,external = false) {
   const docs = template.items.filter(([id])=>bundle.docs.includes(id) && (!external || template.outward.includes(id)));
   const rendered = external ? {...bundle, maker:"Bộ phận kế toán",reviewer:"Người có thẩm quyền"} : bundle;
   const entries=docs.map(item=>{
+    const finalFile=bundle.edits?.[item[0]]?.finalFile;
+    if(finalFile)return [item[0]+".pdf",item[1],accountingFileBytes(finalFile)];
     const source=(item[0]==="bao-gia"&&acceptedQuote(bundle.snapshot??order))?null:evidenceFor(bundle.snapshot??{},item[0]);
     return source?[item[0]+".pdf",item[1],Uint8Array.from(atob(source.content),c=>c.charCodeAt(0))]:
       [item[0]+".html",item[1],documentFile(order,item,rendered)];
@@ -811,10 +817,13 @@ function savePack(form, orderID, intent) {
   const bundle=data.packs[key];
   if (["pending","approved"].includes(bundle?.status)) return;
   const docs=form.getAll("doc");
-  const eligible=packs[kind].items.filter(([id,,,step])=>order.step>=step&&(!isNewFlow(order)||hasSource(order,id))).map((item)=>item[0]);
+  const eligible=packs[kind].items.filter(([id,,,step])=>order.step>=step&&(!isNewFlow(order)||hasSource(order,id)||accountingEdits(key)[id]?.finalFile)).map((item)=>item[0]);
   const evidence=form.has("evidence");
   if (docs.some((id)=>!eligible.includes(id))) return;
   const submit=intent==="submit";
+  if (submit&&docs.some(id=>accountingEdits(key)[id]?.needsFinal)) {
+    fieldError("pack-error","Tải PDF final cho các tài liệu đã chỉnh sửa đang chờ bản cuối.");return;
+  }
   if (submit && (new Set(docs).size!==packs[kind].items.length || !evidence)) {
     fieldError("pack-error","Cần đủ danh sách chứng từ và xác nhận đã đối soát tham chiếu.");
     return;
@@ -824,18 +833,40 @@ function savePack(form, orderID, intent) {
     createdAt:bundle?.createdAt||new Date().toISOString(),
     history:[...(bundle?.history||[]),log(submit?"Đã gửi duyệt":"Đã lưu nháp")],
   };
-  if (submit) next.snapshot=JSON.parse(JSON.stringify(order));
-  data.packs[key]=next;
-  save(); render(); notify(submit?"Đã trình người duyệt.":"Đã lưu bộ nháp.");
+  const previousEdits=data.accountingEdits;
+  if (submit) {
+    next.snapshot=JSON.parse(JSON.stringify(order));
+    next.edits=accountingEdits(key);
+  }
+  if(commitOperational(()=>{
+    data.packs[key]=next;
+    if(submit&&previousEdits){
+      data.accountingEdits={...previousEdits};
+      delete data.accountingEdits[key];
+    }
+  },()=>{
+    if(bundle)data.packs[key]=bundle;else delete data.packs[key];
+    data.accountingEdits=previousEdits;
+  })){
+    render();notify(submit?"Đã trình người duyệt.":"Đã lưu bộ nháp.");
+  }
 }
 function reviewPack(approve,note) {
   const {bundle}=currentPack();
   if (session?.role!=="reviewer" || bundle?.status!=="pending" || bundle.maker===session.account) return;
   if (!approve && !note) { fieldError("dialog-error","Ghi nội dung cần bổ sung."); return; }
-  bundle.status=approve?"approved":"returned";
-  if (approve) { bundle.reviewer=session.account; bundle.approvedAt=new Date().toISOString(); }
-  bundle.history.push(log(approve?"Đã duyệt bộ chứng từ mẫu":"Trả bổ sung · "+note));
-  modal.close(); save(); render(); notify(approve?"Bộ mẫu đã duyệt và có thể tải.":"Đã trả lại cho người lập.");
+  const key=currentPack().key;
+  const previousEdits=data.accountingEdits;
+  const next={...bundle,status:approve?"approved":"returned",
+    history:[...bundle.history,log(approve?"Đã duyệt bộ chứng từ mẫu":"Trả bổ sung · "+note)]};
+  if(approve){next.reviewer=session.account;next.approvedAt=new Date().toISOString();}
+  else delete next.edits;
+  if(commitOperational(()=>{
+    data.packs[key]=next;
+    if(!approve&&bundle.edits)data.accountingEdits={...previousEdits,[key]:bundle.edits};
+  },()=>{data.packs[key]=bundle;data.accountingEdits=previousEdits;})){
+    modal.close();render();notify(approve?"Bộ mẫu đã duyệt và có thể tải.":"Đã trả lại cho người lập.");
+  }
 }
 function openOrder(id) {
   if (!secureOrder(id) || session.area==="accounting") return;
@@ -848,6 +879,12 @@ const actionHandlers={
   "new-order":newOrder,
   workforce:workforceAction,
   "customer-care":careAction,
+  "account-workbench":()=>document.querySelector("#accounting-workbench")?.scrollIntoView({block:"start"}),
+  "account-document":accountingEditDialog,
+  "account-template":accountingTemplate,
+  "account-doc-file":accountingDownloadFile,
+  "account-revise":accountingRevise,
+  "account-old-pack":accountingDownloadOld,
   "add-line":()=>addSalesLine(),
   "remove-line":(_value,control)=>addSalesLine(control),
   "edit-quote":(value)=>editQuote(value==="revise"),
@@ -977,6 +1014,8 @@ document.addEventListener("submit",(event)=>{
       else show(session.area==="accounting"?"accounting":"dashboard");
       break;
     }
+    case "account-editor": saveAccountingDocument(form,el);break;
+    case "account-revise-form": saveAccountingRevision();break;
     case "workforce-form": if(el.dataset.kind.startsWith("care-"))saveCare(form,el);else saveWorkforce(form,el);break;
     case "order-search": selected.search=value("search");render();break;
     case "create-order": createOrder(form,event.submitter?.value);break;

@@ -45,3 +45,9 @@ Trong Mua hàng và kho, lập phiếu nhập hoặc xuất trên hai vật tư 
 - **Giao việc & nhận việc** gắn người phụ trách, hạn, đầu ra và trọng số khối lượng với hồ sơ công trình hoặc việc nội bộ. Người thực hiện nhận việc, ghi tiến độ, trình nghiệm thu. Công trình tổng hợp khối lượng đã nghiệm thu và việc quá hạn.
 - **Chăm sóc khách hàng** có cấu hình độc lập cho ba công ty. Soạn email, mẫu Zalo, bài Fanpage, duyệt lịch và kiểm tra nhật ký chạy thử. Có thể bật quy tắc từ mốc bàn giao hoặc hoàn tất bảo hành. Lịch mô phỏng chỉ chạy khi màn hình chăm sóc mở. Gửi và đăng thật cần máy chủ thực thi lịch, quyền kết nối từng công ty và xác nhận phản hồi từ nhà cung cấp.
 - Tra mã thuế khi lập báo giá tự điền dữ liệu từ danh bạ của công ty. Mã thử lần lượt là `0000000001`, `0000000002` và `0000000003`. Mã ngoài danh bạ có liên kết đối chiếu trên [Cổng Cục Thuế](https://tracuunnt.gdt.gov.vn/tcnnt/mstdn.jsp). Dữ liệu thật từ bên ngoài cần nguồn tra cứu được cấp quyền.
+
+## Bản làm việc của kế toán
+
+Chọn công ty, đơn hàng và loại bộ, rồi mở **Hợp đồng và chứng từ mẫu**. Có thể sửa nội dung ngay trên web, tải mẫu Word, lưu Word đã chỉnh và đính kèm PDF final. Khi trình duyệt, hệ thống khóa phiên bản tài liệu. PDF final được ưu tiên trong ZIP nội bộ và trong tệp đính kèm email mẫu đối với tài liệu được phép gửi. Danh mục xuất ra ngoài của bộ mua hàng vẫn áp dụng.
+
+Nếu sửa bộ đã duyệt, dùng **Tạo bản chỉnh sửa**. Bộ đã duyệt trước vẫn tải được từ lịch sử. Bản mới phải trình duyệt lại. Tệp mẫu giới hạn 200 KB mỗi tệp và được lưu trên trình duyệt.
