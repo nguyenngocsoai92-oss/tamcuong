@@ -62,19 +62,21 @@ function officeFile(format,rows) {
         return `<row r="${i+1}">${row.map(value=>typeof value==="number"?`<c${style}><v>${value}</v></c>`:`<c${style} t="inlineStr"><is><t xml:space="preserve">${xesc(value)}</t></is></c>`).join("")}</row>`;
       }).join("")}</sheetData></worksheet>`]);
   } else {
-    const paragraph=(value,emphasis=false,title=false)=>`<w:p><w:pPr><w:spacing w:after="70" w:line="252" w:lineRule="auto"/>${title?'<w:jc w:val="center"/>':""}</w:pPr><w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/>${emphasis?"<w:b/>":""}<w:sz w:val="${title?34:26}"/><w:szCs w:val="${title?34:26}"/></w:rPr>${String(value??"").split(/\r?\n/).map(part=>`<w:t xml:space="preserve">${xesc(part)}</w:t>`).join("<w:br/>")}</w:r></w:p>`;
+    const paragraph=(value,emphasis=false,title=false,label="")=>`<w:p><w:pPr><w:spacing w:after="25" w:line="240" w:lineRule="auto"/>${title?'<w:jc w:val="center"/>':""}</w:pPr>${label?`<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"/><w:b/><w:sz w:val="26"/></w:rPr><w:t xml:space="preserve">${xesc(label)}  ·  </w:t></w:r>`:""}<w:r><w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="Times New Roman" w:cs="Times New Roman"/>${emphasis?"<w:b/>":""}<w:sz w:val="${title?34:26}"/><w:szCs w:val="${title?34:26}"/></w:rPr>${String(value??"").split(/\r?\n/).map(part=>`<w:t xml:space="preserve">${xesc(part)}</w:t>`).join("<w:br/>")}</w:r></w:p>`;
     const printable=(value)=>typeof value==="number"?number.format(value):value;
     const start=rows.findIndex(row=>row.length===8 && row[0]==="Hạng mục");
     const end=rows.findIndex((row,i)=>i>start && !row.length);
     const regular=(items,heading=false)=>items.map((row,i)=>{
-      if(["Đại diện bên bán ký","Người lập báo giá"].includes(row[0]))return `<w:tbl><w:tblPr><w:tblW w:w="9300" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4650"/><w:gridCol w:w="4650"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="1450" w:hRule="atLeast"/></w:trPr>${row.map(label=>`<w:tc>${paragraph(label,true)}${paragraph("Ký, ghi rõ họ tên")}</w:tc>`).join("")}</w:tr></w:tbl>`;
-      if(row[0]==="Ký, ghi rõ họ tên")return "";
-      return paragraph(row.map(printable).join("  ·  "),heading&&i===0||/^Điều /.test(row[0]||""),heading&&i===0);
+      if(["Đại diện bên bán ký","Người lập báo giá"].includes(row[0]))return `<w:tbl><w:tblPr><w:tblW w:w="9300" w:type="dxa"/></w:tblPr><w:tblGrid><w:gridCol w:w="4650"/><w:gridCol w:w="4650"/></w:tblGrid><w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="1200" w:hRule="atLeast"/></w:trPr>${row.map(label=>`<w:tc>${paragraph(label,true)}${paragraph("Ký, ghi rõ họ tên")}</w:tc>`).join("")}</w:tr></w:tbl>`;
+      if(!row.length||row[0]==="Ký, ghi rõ họ tên")return "";
+      if(/^Điều /.test(row[0]))return paragraph(row[1],false,false,row[0]);
+      return paragraph(row.map(printable).join("  ·  "),heading&&i===0,heading&&i===0);
     }).join("");
-    const widths=[2050,600,480,1120,580,1250,1130,1410];
+    const widths=[2190,850,580,1510,770,1470,1640];
+    const printRows=printableSalesTable(rows.slice(start,end));
     const table=start>=0?`<w:tbl><w:tblPr><w:tblBorders>${["top","left","bottom","right","insideH","insideV"].map(side=>`<w:${side} w:val="single" w:sz="4" w:color="BDB6A2"/>`).join("")}</w:tblBorders><w:tblLayout w:type="fixed"/></w:tblPr><w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join("")}</w:tblGrid>
-    ${rows.slice(start,end).map((row,i)=>`<w:tr><w:trPr><w:cantSplit/>${i===0?"<w:tblHeader/>":""}</w:trPr>${row.map((value,j)=>`<w:tc><w:tcPr><w:tcW w:w="${widths[j]}" w:type="dxa"/>${i===0?'<w:shd w:fill="EAE5D8"/>':""}</w:tcPr>${paragraph(printable(value),i===0)}</w:tc>`).join("")}</w:tr>`).join("")}</w:tbl>`:"";
-    files.push([main,xml+`<w:document xmlns:w="${ns}"><w:body>${start>=0?regular(rows.slice(0,start),true)+table+regular(rows.slice(end)):regular(rows,true)}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:bottom="1134" w:left="1417" w:right="1134"/></w:sectPr></w:body></w:document>`]);
+    ${printRows.map((row,i)=>`<w:tr><w:trPr><w:cantSplit/>${i===0?"<w:tblHeader/>":""}</w:trPr>${row.map((value,j)=>`<w:tc><w:tcPr><w:tcW w:w="${widths[j]}" w:type="dxa"/>${i===0?'<w:shd w:fill="EAE5D8"/>':""}</w:tcPr>${paragraph(printable(value),i===0)}</w:tc>`).join("")}</w:tr>`).join("")}</w:tbl>`:"";
+    files.push([main,xml+`<w:document xmlns:w="${ns}"><w:body>${start>=0?regular(rows.slice(0,start),true)+paragraph("Đơn giá chưa VAT  ·  Đơn vị tiền: đồng")+table+regular(rows.slice(end)):regular(rows,true)}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:bottom="1134" w:left="1417" w:right="1134"/></w:sectPr></w:body></w:document>`]);
   }
   return new Blob([zip(files)],{type:officeTypes[format]});
 }
@@ -98,11 +100,16 @@ function commercialRows(order,quote,contract=null) {
   else rows.push([],["Người lập báo giá","Người duyệt báo giá"],["Ký, ghi rõ họ tên","Ký, ghi rõ họ tên"],[],[]);
   return rows;
 }
+function printableSalesTable(rows) {
+  return [["Hạng mục","ĐVT","SL","Đơn giá","VAT","Tiền VAT","Thành tiền"],
+    ...rows.slice(1).map(([name,unit,quantity,price,vat,,tax,total])=>[name,unit,quantity,price,vat===""?"":vat+"%",tax,total])];
+}
 function commercialHtml(order,quote,contract) {
   const rows=commercialRows(order,quote,contract);
   const [head,...rest]=rows;
   const start=rows.findIndex(row=>row[0]==="Hạng mục"&&row.length===8);
   const end=start+quote.items.length+1;
+  const [tableHead,...tableRows]=printableSalesTable(rows.slice(start,end));
   const fields=(entries)=>entries.filter(r=>r.length&&r[1]!=="").map(([key,value])=>`<div ${/^Điều /.test(key)?'class="clause"':""}><b>${esc(key)}</b><span>${esc(typeof value==="number"?money(value):value)}</span></div>`).join("");
   return `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(head[0])}</title>
   <style>
@@ -110,13 +117,13 @@ function commercialHtml(order,quote,contract) {
   header{text-align:center;border-top:2px solid #283c30;border-bottom:1px solid #bfb6a2;padding:7px 0}header small{font-size:12pt;letter-spacing:.07em;color:#51554b}h1{font-size:17pt;margin:4px 0}header strong{font-size:13pt}
   .facts{margin:8px 0}.facts div{display:grid;grid-template-columns:40mm 1fr;gap:5px;border-bottom:1px solid #e5e1d6;padding:3px 4px;break-inside:avoid}
   .facts .clause{display:block;border-bottom:0;padding:3px 0}.clause span{display:block}.facts span{white-space:pre-wrap;overflow-wrap:anywhere}
-  table{border-collapse:collapse;width:100%;font:13pt/1.13 "Times New Roman",Times,serif}td,th{padding:3px 4px;border:1px solid #c9c3b2;text-align:left}th{background:#eeeade;font-weight:bold}thead{display:table-header-group}tr{break-inside:avoid}
+  table{border-collapse:collapse;width:100%;font:13pt/1.13 "Times New Roman",Times,serif}td,th{padding:3px 4px;border:1px solid #c9c3b2;text-align:left}caption{text-align:right;font-size:12pt;margin-bottom:3px}th{background:#eeeade;font-weight:bold}thead{display:table-header-group}tr{break-inside:avoid}
   td:nth-child(n+3){text-align:right}.totals{width:min(100%,83mm);margin:6px 0 0 auto}.totals div{grid-template-columns:1fr auto}.totals div:last-child{border-top:1px solid #283c30;font-weight:bold}
   .sign{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;margin-top:12px;min-height:31mm;break-inside:avoid}.sign small{display:block;font-size:12pt;margin-top:3px}button{margin:7px 0;padding:5px 9px;font:inherit}
   @media print{button{display:none}body{margin:0;padding:0;max-width:none}th{print-color-adjust:exact;-webkit-print-color-adjust:exact}}</style>
   <header><small>MẪU THỬ NGHIỆM</small><h1>${esc(head[0])}</h1><strong>${esc(head[1])}</strong></header><button onclick="window.print()">In / Lưu PDF</button>
   <section class="facts">${fields(rest.slice(0,start-1))}</section>
-  <table><thead><tr>${rows[start].map(v=>`<th>${esc(v)}</th>`).join("")}</tr></thead><tbody>${rows.slice(start+1,end).map(row=>`<tr>${row.map(v=>`<td>${esc(typeof v==="number"?number.format(v):v)}</td>`).join("")}</tr>`).join("")}</tbody></table>
+  <table><caption>Đơn giá chưa VAT · Đơn vị tiền: đồng</caption><thead><tr>${tableHead.map(v=>`<th>${esc(v)}</th>`).join("")}</tr></thead><tbody>${tableRows.map(row=>`<tr>${row.map(v=>`<td>${esc(typeof v==="number"?number.format(v):v)}</td>`).join("")}</tr>`).join("")}</tbody></table>
   <section class="facts totals">${fields(rows.slice(end+1,end+5))}</section>
   ${contract?'<div class="sign"><div><b>Đại diện bên bán</b><small>Ký, ghi rõ họ tên</small></div><div><b>Đại diện bên mua</b><small>Ký, ghi rõ họ tên</small></div></div>':quoteSignature()}</html>`;
 }
