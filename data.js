@@ -88,11 +88,11 @@ const DEMO = (() => {
       ["Chi phí cố định", "12.500.000 ₫ / kỳ mẫu", "Kế toán", "Đã đối chiếu"],
       ["Tài sản đang sử dụng", "3 tài sản mẫu", "Kế toán", "Cần đối chiếu"],
     ] },
-    people: { name: "Nhân sự & bảo hiểm", icon: "users", fields: ["Hồ sơ", "Nội dung", "Phụ trách"], next: "Đã rà soát", rows: [
-      ["Nhân sự mẫu A", "Phân công kỹ thuật", "Nhân sự", "Đã rà soát"],
-      ["Nhân sự mẫu B", "Kiểm tra hồ sơ bảo hiểm", "Nhân sự", "Chờ rà soát"],
-      ["Bàn giao công việc mẫu", "Chuyển việc đang mở", "Quản lý bộ phận", "Chờ rà soát"],
-    ] },
+    people: { name: "Quản lý nhân viên", icon: "users" },
+    attendance: { name: "Chấm công", icon: "check" },
+    jobs: { name: "Giao việc & nhận việc", icon: "steps" },
+    progress: { name: "Tiến độ công trình", icon: "board" },
+    care: { name: "Chăm sóc khách hàng", icon: "message" },
     admin: { name: "Quản trị", icon: "settings", fields: ["Danh mục", "Nội dung", "Phụ trách"], next: "Đã rà soát", rows: [
       ["Phân quyền theo công ty", "Kinh doanh, kỹ thuật, kho và kế toán", "Quản trị", "Chờ rà soát"],
       ["Phiên bản biểu mẫu", "Mẫu nội bộ theo công ty", "Chủ quy trình", "Chờ rà soát"],

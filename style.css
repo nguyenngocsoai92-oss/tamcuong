@@ -265,3 +265,15 @@ dialog{border-radius:5px}
   .hero h1{font-size:40px}.hero p{font-size:14px}.workspace{display:block}.side{padding:4px 7px}
   .work{padding:11px 8px}.nav{font-size:13px}.portal{padding:8px;min-height:96px}.portal h3{font-size:15px}
 }
+
+.work-filter{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.work-filter label{display:flex;align-items:center;gap:8px}
+.work-filter .input{width:auto}
+.project-report{display:grid;gap:10px}
+.progress-line{display:grid;grid-template-columns:3rem minmax(70px,1fr) auto;align-items:center;gap:9px}
+.progress-line progress{width:100%;height:9px;accent-color:var(--green)}
+.care-notice{margin-bottom:12px;padding:8px 12px;background:#efeadd;border:1px solid var(--line)}
+.care-copy{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:8px}
+.tax-actions a{text-decoration:underline}
+[data-tax-status]:empty{display:none}
+@media(max-width:580px){.progress-line{grid-template-columns:3rem 1fr}.progress-line span{grid-column:1/-1}}

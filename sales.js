@@ -27,7 +27,7 @@ function quoteIdentityFields(identity={}) {
   <div class="wide identity-block form-grid" data-identity="named">
     <label class="field wide">Loại khách hàng<select class="input" name="customer-kind"><option value="retail">Khách lẻ</option><option value="business" ${identity.kind==="business"?"selected":""}>Doanh nghiệp</option></select></label>
     <div class="wide identity-block form-grid" data-identity="retail">${field("Họ tên khách hàng","customer",100,"text",true)}</div>
-    <div class="wide identity-block form-grid" data-identity="business">${field("Tên công ty khách hàng","business",160,"text",true)}${field("Mã số thuế khách hàng","taxId",24,"text",true)}${field("Người đặt hàng","person",100,"text",true)}</div>
+    <div class="wide identity-block form-grid" data-identity="business">${field("Tên công ty khách hàng","business",160,"text",true)}${field("Mã số thuế khách hàng","taxId",24,"text",true)}${field("Người đặt hàng","person",100,"text",true)}<div class="wide actions tax-actions">${careButton("Điền từ danh bạ","tax")}<a href="${taxRegistry}" target="_blank" rel="noopener">Tra trên cổng Cục Thuế</a></div><p class="wide muted" data-tax-status role="status"></p></div>
     ${field("Địa chỉ khách hàng","address",180,"text",true)}${field("Số điện thoại","phone",30,"tel",true)}${field("Email","email",150,"email",true)}
     ${field("Địa chỉ bên bán","sellerAddress",180)}${field("Mã số thuế bên bán","sellerTax",24)}${field("Điện thoại bên bán","sellerPhone",30,"tel")}${field("Email bên bán","sellerEmail",150,"email")}
   </div></div>`;

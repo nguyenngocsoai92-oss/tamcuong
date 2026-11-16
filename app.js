@@ -74,7 +74,7 @@ const packRoute = (o, kind = "sales") => "ke-toan/" + o.company + "/ho-so/" + en
 const viewSlug = {
   dashboard:"tong-quan", orders:"ho-so", quotes:"bao-gia", contracts:"hop-dong", process:"quy-trinh", kpi:"bao-cao",
   partners:"doi-tac", inventory:"mua-hang-kho", finance:"tai-chinh",
-  people:"nhan-su", admin:"quan-tri", reminders:"nhac-viec",
+  people:"nhan-su", attendance:"cham-cong", jobs:"giao-viec", progress:"tien-do", care:"cham-soc-khach-hang", admin:"quan-tri", reminders:"nhac-viec",
 };
 const viewForSlug = Object.fromEntries(Object.entries(viewSlug).map(([key,value]) => [value,key]));
 function secureOrder(id) {
@@ -237,12 +237,15 @@ function detail() {
     ${o.items?.length ? `<hr class="rule"><h2>Hạng mục đơn hàng</h2>${salesLines(o.items,acceptedQuote(o)?.discount||0)}${acceptedQuote(o)?`<p class="muted">Tổng đơn theo báo giá được chấp thuận.</p>`:""}` : ""}
     </section>
     <div>${operationPanels(o)}<section class="panel panel-pad related"><h2>Hồ sơ liên quan</h2><ul class="sublist">
+    ${active && o.type==="project" ? `<li>${linkBtn("Tiến độ công trình",root+"/tien-do",{style:"quiet compact",icon:"steps"})}</li>` : ""}
     ${active ? `<li>${linkBtn("Báo giá của đơn",quoteRoute(o),{style:"quiet compact",icon:"doc"})}<small>${quoteLabel(latestQuote(o)?.status)}</small></li>` : ""}
     ${active && acceptedQuote(o) ? `<li>${linkBtn("Hợp đồng của đơn",contractRoute(o),{style:"quiet compact",icon:"doc"})}<small>${o.contract?.final?"Bản cuối":o.contract?"Bản nháp":"Chưa lập"}</small></li>`:""}
     ${Object.entries(packs).map(([key,pack])=>`<li>${linkBtn(pack.label,packRoute(o,key),{style:"quiet compact",icon:"link"})}<small>${packStatus(data.packs[packKey(o,key)]?.status)}</small></li>`).join("")}
     </ul></section>${o.deliveryAddress || o.contact ? `<section class="panel panel-pad"><h2>Thông tin giao hàng</h2><ul class="sublist">${o.contact?`<li>${esc(o.contact)}<small>Đầu mối liên hệ</small></li>`:""}${o.deliveryAddress?`<li>${esc(o.deliveryAddress)}<small>Địa điểm giao</small></li>`:""}</ul></section>`:""}<section class="panel panel-pad"><h2>Nhật ký nghiệp vụ</h2><ul class="sublist">${o.history.slice().reverse().slice(0,6).map((entry)=>`<li>${esc(entry.label)}<small>${esc(entry.actor)} · ${when(entry.at)}</small></li>`).join("")}</ul></section></div></div>`;
 }
 function modulePage(key) {
+  if(["people","attendance","jobs","progress"].includes(key)) return workforcePage(key);
+  if(key==="care"||key==="partners") return carePage(key==="partners");
   if(key==="inventory") return heading("Mua hàng và kho","Đề xuất mua, nhận hàng, xuất kho theo đơn.")+purchasingPage()+stockLedger()+inventoryPricing();
   const module = modules[key];
   const entries = data.checklists[session.company + ":" + key] || {};
@@ -580,7 +583,10 @@ function render() {
   else if (view==="process" && session.area==="company") body=processPage();
   else if (view==="accounting" && session.area==="accounting") body=accountingPage();
   else if (view==="kpi" && session.area!=="accounting") body=kpiPage();
-  else if (session.area==="company" && Object.hasOwn(modules,view)) body=modulePage(view);
+  else if (session.area==="company" && Object.hasOwn(modules,view)){
+    if(["people","attendance","jobs","progress","care","partners"].includes(view))prepareWorkforceDemo();
+    body=modulePage(view);
+  }
   else { show(session.area==="accounting"?"accounting":"dashboard"); return; }
   app.innerHTML=header()+workspace(body);
 }
@@ -794,6 +800,7 @@ function advanceOrder(order,step,form) {
   order.step=path[path.indexOf(step)+1];
   selected.stage=null;
   order.history.push(log(label + " · " + reference + (note ? " · " + note : "")));
+  if(step===8||step===10)careOrderEvent(order,step===8?"delivery":"warranty");
   modal.close(); save(); render(); notify("Hồ sơ đã chuyển bước.");
 }
 function savePack(form, orderID, intent) {
@@ -839,6 +846,8 @@ const actionHandlers={
   close:()=>{pendingRoute=null;modal.close();},
   nav:(value)=>show(value),
   "new-order":newOrder,
+  workforce:workforceAction,
+  "customer-care":careAction,
   "add-line":()=>addSalesLine(),
   "remove-line":(_value,control)=>addSalesLine(control),
   "edit-quote":(value)=>editQuote(value==="revise"),
@@ -892,7 +901,7 @@ const actionHandlers={
     const id=Number(value);
     const module=modules[view];
     const key=session.company+":"+view;
-    if (!module.rows[id] || module.rows[id][3].startsWith("Đã") || data.checklists[key]?.[id]) return;
+    if (!module.rows?.[id] || module.rows[id][3].startsWith("Đã") || data.checklists[key]?.[id]) return;
     data.checklists[key] ||= {};
     data.checklists[key][id]={status:module.next,at:new Date().toISOString(),actor:session.account};
     save(); render(); notify(module.next + ".");
@@ -933,6 +942,8 @@ document.addEventListener("change",(event)=>{
     if(form) syncQuoteIdentity(form);
     return;
   }
+  if(event.target.dataset.workFilter&&session?.area==="company"){workFilter(event.target.dataset.workFilter,event.target.value);return;}
+  if(event.target.name==="taxId"&&event.target.form?.matches("#create-order, #quote-form")){taxLookup(event.target,true);return;}
   const {id,value}=event.target;
   if (id==="board-company" && session?.area==="board" && (value==="all"||companies[value])) selected.company=value;
   else if (id==="account-order" && canAccount(secureOrder(value))) selected.order=value;
@@ -966,6 +977,7 @@ document.addEventListener("submit",(event)=>{
       else show(session.area==="accounting"?"accounting":"dashboard");
       break;
     }
+    case "workforce-form": if(el.dataset.kind.startsWith("care-"))saveCare(form,el);else saveWorkforce(form,el);break;
     case "order-search": selected.search=value("search");render();break;
     case "create-order": createOrder(form,event.submitter?.value);break;
     case "quote-form": saveQuote(form,el);break;
@@ -1018,5 +1030,6 @@ document.addEventListener("submit",(event)=>{
 });
 modal.addEventListener("cancel",()=>{pendingRoute=null;});
 window.addEventListener("hashchange",()=>route(location.hash));
+setInterval(()=>runCareSchedule(),15000);
 render();
 if (location.hash) route(location.hash);
