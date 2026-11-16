@@ -23,6 +23,7 @@ function operationPanels(order) {
   return `<section class="panel panel-pad"><h2>Khách hàng và hợp đồng đã ký</h2><ul class="sublist">
   <li>${esc(order.customer)}${unidentified(order)&&editable?" "+btn("Gắn khách hàng","link-customer",{style:"light compact"}):""}</li>
   <li>${evidenceFor(order,"hop-dong")?sourceDownload(order,evidenceFor(order,"hop-dong")):"Chưa lưu bản ký"}
+  ${evidenceFor(order,"hop-dong")?.signedOn?`<small>Ngày ký ${date(evidenceFor(order,"hop-dong").signedOn)}${order.effectiveOn?" · Hiệu lực "+date(order.effectiveOn):""}</small>`:""}
   ${editable&&order.contract?.final&&!evidenceFor(order,"hop-dong")?" "+btn("Lưu hợp đồng đã ký","upload-source",{value:"hop-dong",style:"light compact"}):""}</li></ul>
   </section><section class="panel panel-pad"><h2>Tiến độ thanh toán</h2><ul class="sublist">
   <li>Mốc tạm ứng <strong>${money(order.deposit)}</strong> ${editable&&order.step===4?btn("Đặt mức tạm ứng","set-deposit",{style:"light compact"}):""}</li>
@@ -91,6 +92,7 @@ function sourceAction(key) {
   openDialog("Lưu chứng từ nguồn",`<form id="source-form" data-order="${esc(order.id)}" data-key="${key}">
   <p>${esc(order.id)} · ${sourceLabel(key)}</p>
   <label class="field extra-field">Số hiệu / Mã tham chiếu<input class="input" name="ref" maxlength="120" required></label>
+  ${key==="hop-dong"?`<label class="field extra-field">Ngày ký<input class="input" name="signedOn" type="date" max="${dayInVietnam()}" value="${dayInVietnam()}" required></label>`:""}
   <label class="field extra-field">Tệp PDF minh họa<input class="input" name="file" type="file" accept="application/pdf,.pdf" required></label>
   <p class="muted">Tối đa 200 KB mỗi tệp. Tệp lưu trong trình duyệt. Dùng bản đã ký minh họa cho hợp đồng.</p>
   <p class="error" id="dialog-error"></p><button class="btn">Lưu chứng từ</button></form>`);
@@ -99,6 +101,8 @@ async function saveSource(form,el) {
   const {order:id,key}=el.dataset;
   const order=secureOrder(id);
   const ref=String(form.get("ref")||"").trim(), file=form.get("file");
+  const signedOn=key==="hop-dong"?String(form.get("signedOn")||""):"";
+  if(key==="hop-dong"&&(!signedOn||signedOn>dayInVietnam()))return fieldError("dialog-error","Chọn ngày ký hợp lệ.");
   if(!order||!ref||!file?.size||file.size>200*1024||!Object.hasOwn(sourceKeys,key)||await file.slice(0,5).text()!=="%PDF-") {
     fieldError("dialog-error","Chọn PDF minh họa tối đa 200 KB và nhập mã tham chiếu.");return;
   }
@@ -106,7 +110,7 @@ async function saveSource(form,el) {
   const allowed=modal.contains(el)&&(view==="accounting"?canAccount(order)&&session.role==="maker"&&currentPack().order?.id===id&&
     !["approved","pending"].includes(currentPack().bundle?.status):canWork(order)&&!order.paused);
   if(!allowed||(key==="hop-dong"&&isNewFlow(order)&&(!order.contract?.final||order.step!==4)))return;
-  const item={key,ref,name:file.name,content,actor:session.account,at:new Date().toISOString()};
+  const item={key,ref,name:file.name,content,signedOn,actor:session.account,at:new Date().toISOString()};
   const previous=order.sources;
   const history=order.history.slice();
   if(commitOperational(()=>{order.sources={...previous,[key]:item};order.history.push(log("Đã lưu "+sourceLabel(key)+" · "+ref));},
@@ -134,9 +138,9 @@ function stockLedger() {
   return section("Tồn và phiếu nhập – xuất",table(["Vật tư","Tồn đầu","Tồn hiện tại",""],stockSamples.map((row,index)=>
     `<tr><td>${row.name}</td><td>${openingStock[index]}</td><td>${remainingStock(index,moves)} ${row.unit}</td><td>${btn("Lập phiếu kho","stock-move",{value:index,style:"light compact",icon:"plus"})}</td></tr>`)),
   "Tồn hiện tại tính từ số đầu kỳ mẫu và các phiếu đã ghi.")+
-  section("Nhật ký kho",table(["Thời điểm","Mã phiếu","Vật tư","Loại","Số lượng","Đơn hàng","Đối tác / Ghi chú"],moves.slice().reverse().map(row=>
+  section("Nhật ký kho",table(["Thời điểm","Mã phiếu","Vật tư","Loại","Số lượng","Đơn hàng","Đối tác / Ghi chú",""],moves.slice().reverse().map(row=>
     `<tr><td>${when(row.at)}</td><td>${esc(row.ref)}</td><td>${stockSamples[row.index].name}</td><td>${row.type==="in"?"Nhập":"Xuất"}</td><td>${row.qty}</td>
-    <td>${row.order?linkBtn(row.order,companyRoute(row.company)+"/ho-so/"+encodeURIComponent(row.order),{style:"quiet compact"}):"—"}</td><td>${esc(row.party)}</td></tr>`)));
+    <td>${row.order?linkBtn(row.order,companyRoute(row.company)+"/ho-so/"+encodeURIComponent(row.order),{style:"quiet compact"}):"—"}</td><td>${esc(row.party)}${row.purchase?`<small>${esc(row.purchase)}</small>`:""}</td><td>${btn("In phiếu","print-stock",{value:row.ref,style:"light compact"})}</td></tr>`)));
 }
 function stockMoveDialog(value) {
   const index=Number(value);
@@ -159,7 +163,7 @@ function saveStockMove(form,el) {
     (id&&!order)||(type==="out"&&(!order||qty>remainingStock(index,moves)))||moves.some(r=>r.ref.toLowerCase()===ref.toLowerCase())){
     return fieldError("dialog-error","Kiểm tra mã phiếu, số lượng và đơn hàng. Xuất kho cần gắn đơn và đủ tồn.");
   }
-  (data.stockMoves ||= []).push({company:session.company,index,type,ref,qty,party,order:id,price:stockPrice(index).price,vat:stockPrice(index).vat,at:new Date().toISOString()});
+  (data.stockMoves ||= []).push({company:session.company,index,type,ref,qty,party,order:id,price:stockPrice(index).price,vat:stockPrice(index).vat,actor:session.account,at:new Date().toISOString()});
   if(order)order.history.push(log((type==="in"?"Nhập kho":"Xuất kho")+" · "+ref));
   modal.close();save();render();notify("Đã ghi phiếu kho.");
 }

@@ -32,3 +32,9 @@ Khi lập đơn hoặc sửa báo giá nháp, chọn mẫu ẩn tên hai bên ho
 Đơn tạo từ bản v7 được kiểm tra chứng từ nguồn. Gắn khách hàng trước khi khóa hợp đồng. Lưu PDF hợp đồng đã ký mẫu và đặt mốc tạm ứng trước khi chuyển sang thu tiền. Ghi mỗi lần thu theo mã giao dịch. Kế toán duyệt dựa trên chứng từ nguồn và tải chính tệp PDF đã lưu trong bộ đã duyệt. PDF mẫu tối đa 200 KB mỗi tệp, phụ thuộc dung lượng trình duyệt. Đơn minh họa đời trước vẫn mở được.
 
 Trong Mua hàng và kho, lập phiếu nhập hoặc xuất trên hai vật tư có sẵn. Xuất kho cần gắn đơn và đủ tồn. Báo cáo nhà cung cấp lấy số phiếu và giá trị từ các lần nhập đã ghi. Bản demo chưa có máy chủ dùng chung, dịch vụ gửi thư thật, kết nối hóa đơn hoặc sổ kế toán.
+
+## Mua hàng, kho và hồ sơ hợp đồng
+
+- Trong **Mua hàng và kho**, lập đề xuất mua, ghi nhận duyệt rồi nhập theo đề xuất. Có thể nhập từng đợt với mã phiếu riêng. Phiếu lưu giá chưa VAT và thuế của lần mua. Sổ kho tra được mã đề xuất, phiếu nhập và đơn xuất. In đề xuất, phiếu nhập, phiếu xuất hoặc sổ kho ngay tại màn hình.
+- Trong hồ sơ đơn, lấy báo giá đã chấp thuận làm căn cứ soạn hợp đồng. Điền điều khoản và khóa bản cuối, lưu PDF đã ký cùng ngày ký, sau đó ghi ngày hiệu lực khi chuyển sang thu tiền. Mẫu hợp đồng bán hàng in khổ A4, dùng Times New Roman 13 pt cho nội dung, có vị trí ký cho hai bên.
+- Đối chiếu mẫu với [Bộ luật Dân sự 2015](https://vanban.chinhphu.vn/?docid=183188&pageid=27160) và [Điều 6 Nghị định 55/2024/NĐ-CP](https://xaydungchinhsach.chinhphu.vn/toan-van-nghi-dinh-55--2024-nd-cp-quy-dinh-chi-tiet-mot-so-dieu-cua-luat-bao-ve-quyen-loi-nguoi-tieu-dung-119240521113013883.htm) khi giao dịch thuộc phạm vi bảo vệ người tiêu dùng. Xác nhận người ký, điều khoản và bộ chứng từ theo giao dịch trước khi áp dụng.

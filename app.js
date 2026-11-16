@@ -243,7 +243,7 @@ function detail() {
     </ul></section>${o.deliveryAddress || o.contact ? `<section class="panel panel-pad"><h2>Thông tin giao hàng</h2><ul class="sublist">${o.contact?`<li>${esc(o.contact)}<small>Đầu mối liên hệ</small></li>`:""}${o.deliveryAddress?`<li>${esc(o.deliveryAddress)}<small>Địa điểm giao</small></li>`:""}</ul></section>`:""}<section class="panel panel-pad"><h2>Nhật ký nghiệp vụ</h2><ul class="sublist">${o.history.slice().reverse().slice(0,6).map((entry)=>`<li>${esc(entry.label)}<small>${esc(entry.actor)} · ${when(entry.at)}</small></li>`).join("")}</ul></section></div></div>`;
 }
 function modulePage(key) {
-  if(key==="inventory") return heading("Mua hàng và kho","Theo dõi giá nhập, số tồn và phiếu kho gắn với đơn hàng.")+inventoryPricing()+stockLedger();
+  if(key==="inventory") return heading("Mua hàng và kho","Đề xuất mua, nhận hàng, xuất kho theo đơn.")+purchasingPage()+stockLedger()+inventoryPricing();
   const module = modules[key];
   const entries = data.checklists[session.company + ":" + key] || {};
   return heading(module.name,"Danh sách mẫu theo phạm vi công ty.",linkBtn("Hồ sơ nghiệp vụ",companyRoute(session.company)+"/ho-so",{icon:"box"}))+
@@ -407,7 +407,7 @@ function documentFile(order,item,bundle) {
   if (quote&&item[0]==="hop-dong"&&source.contract?.final) return commercialHtml(source,quote,source.contract);
   const {title,rows} = documentDetails(order,item,bundle);
   return `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(title)}</title>
-  <style>body{max-width:760px;margin:40px auto;padding:0 20px;font:14px/1.55 Arial,sans-serif;color:#192b25}header{border-top:5px solid #1d624e;border-bottom:1px solid #d3dfd5;padding:17px 0 12px}h1{font-size:30px;letter-spacing:-.02em;margin:8px 0 0}dl>div{display:grid;grid-template-columns:minmax(140px,31%) 1fr;gap:10px;padding:9px 2px;border-bottom:1px solid #e3eae4;break-inside:avoid}dt{font-weight:bold;color:#345b4b}dd{margin:0;overflow-wrap:anywhere}.demo{font-size:11px;color:#754516;font-weight:bold;font-variant:small-caps}.company{font-size:12px;color:#376451;font-weight:bold}footer{margin-top:22px;color:#506359;font-size:12px}@media(max-width:520px){dl>div{grid-template-columns:1fr;gap:2px}}@media print{body{margin:0}footer{color:#333}}</style>
+  <style>@page{size:A4;margin:20mm 20mm 20mm 25mm}body{max-width:165mm;margin:26px auto;padding:0 12px;font:13pt/1.25 "Times New Roman",Times,serif;color:#192b25}header{border-top:5px solid #1d624e;border-bottom:1px solid #d3dfd5;padding:17px 0 12px}h1{font-size:17pt;margin:6px 0 0}dl>div{display:grid;grid-template-columns:minmax(140px,31%) 1fr;gap:10px;padding:9px 2px;border-bottom:1px solid #e3eae4;break-inside:avoid}dt{font-weight:bold;color:#345b4b}dd{margin:0;overflow-wrap:anywhere}.demo{font-size:11px;color:#754516;font-weight:bold;font-variant:small-caps}.company{font-size:12px;color:#376451;font-weight:bold}footer{margin-top:14px;color:#506359;font-size:12pt}@media(max-width:520px){dl>div{grid-template-columns:1fr;gap:2px}}@media print{body{margin:0}footer{color:#333}}</style>
   <header><div class="company">Công ty ${esc(companyName(order.company))}</div><div class="demo">BẢN MẪU · DỮ LIỆU GIẢ ĐỊNH · DÙNG ĐỂ RÀ SOÁT</div><h1>${esc(title)}</h1></header>
   <dl>${rows.map(([k,v])=>`<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
   <footer>Tệp HTML mẫu. Hồ sơ chính thức cần mẫu đã chốt, thông tin pháp nhân, chứng từ gốc và chữ ký theo thẩm quyền.</footer></html>`;
@@ -692,6 +692,7 @@ function advanceDialog(order) {
   const readonly=isNewFlow(order)?'readonly aria-label="Tiền đã thu theo các lần ghi nhận"':"";
   openDialog(step.action,`<form id="advance-form" data-order="${esc(order.id)}" data-step="${order.step}">
    ${stageContent(step)}<p class="gate-line"><strong>Điều kiện chuyển bước</strong> ${esc(step.gate)}</p>
+   ${order.step===4&&isNewFlow(order)?`<label class="field">Ngày hiệu lực<input class="input" name="effectiveOn" type="date" max="${dayInVietnam()}" value="${dayInVietnam()}" required></label>`:""}
    ${deposit ? `<div class="form-grid"><label class="field wide">Tổng số tiền thực nhận (₫)<input class="input" name="paid" type="number" step="1" min="0" max="${order.total}" value="${order.paid}" ${readonly} required></label><label class="field wide">Mã duyệt ngoại lệ nếu chưa đủ ứng<input class="input" name="approval" maxlength="80"></label></div><p class="muted">Mốc tạm ứng ${money(order.deposit)}.${readonly?" Dùng Ghi nhận lần thu để cập nhật.":""}</p>` : ""}
    ${settle ? `<div class="form-grid"><label class="field">Tổng số đã thu (₫)<input class="input" name="paid" type="number" min="0" max="${order.total}" value="${order.paid}" ${readonly} required></label><label class="field">Tiền giữ lại (₫)<input class="input" name="retention" type="number" min="0" max="${order.total}" value="${order.retention}" required></label></div>` : ""}
    ${order.step===8&&isNewFlow(order)?`<div class="form-grid">
@@ -739,6 +740,11 @@ function advanceOrder(order,step,form) {
   const note=String(form.get("note")||"").trim();
   if(isNewFlow(order)&&step===4&&(!evidenceFor(order,"hop-dong")||!order.depositTerm)) {
     return fieldError("dialog-error","Lưu bản hợp đồng đã ký và đặt điều khoản tạm ứng trước khi chuyển bước.");
+  }
+  if(isNewFlow(order)&&step===4) {
+    const effective=String(form.get("effectiveOn")||"");
+    if(!effective||effective>dayInVietnam())return fieldError("dialog-error","Nhập ngày hiệu lực đã đến trước khi chuyển sang thu tiền.");
+    order.effectiveOn=effective;
   }
   const reference=step===4&&isNewFlow(order)?evidenceFor(order,"hop-dong").ref:String(form.get("reference")||"").trim();
   if (!reference) {fieldError("dialog-error","Điền mã tham chiếu hồ sơ đầu ra.");return;}
@@ -849,6 +855,11 @@ const actionHandlers={
   "upload-source":sourceAction,
   "download-source":downloadSource,
   "stock-move":stockMoveDialog,
+  "new-purchase":purchaseDialog,
+  "approve-purchase":(id)=>purchaseStep(id,true),
+  "receive-purchase":(id)=>purchaseStep(id,false),
+  "print-purchase":(id)=>stockPrint("purchase",id),
+  "print-stock":(id)=>stockPrint("movement",id),
   "archive-pack":()=>{
     const {bundle}=currentPack();
     if (session?.role!=="maker"||bundle?.status!=="approved"||bundle.archivedAt) return;
@@ -963,6 +974,8 @@ document.addEventListener("submit",(event)=>{
     case "stock-price-form": saveStockPrice(form,el);break;
     case "operation-form": saveOperation(form,el);break;
     case "stock-move-form": saveStockMove(form,el);break;
+    case "purchase-form": savePurchase(form);break;
+    case "purchase-step": savePurchaseStep(form,el);break;
     case "source-form": {
       const submit=event.submitter;
       if(!submit||submit.disabled)break;
