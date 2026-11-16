@@ -11,23 +11,38 @@ const dayInVietnam = (day=new Date()) => new Intl.DateTimeFormat("sv-SE",{
   timeZone:"Asia/Ho_Chi_Minh",year:"numeric",month:"2-digit",day:"2-digit",
 }).format(day);
 const maxSalesValue = 100000000000;
+const vatRates=[0,5,8,10];
+const vatOptions=(rate)=>vatRates.map(value=>`<option value="${value}" ${rate===value?"selected":""}>${value}%</option>`).join("");
 const draftLinesFor = (order) => order.items?.length ? order.items : [{name:order.title,unit:"Gói",qty:1,price:order.total}];
 
 function salesAmounts(items,discount=0,tax=0) {
-  const subtotal=items.reduce((sum,item)=>sum+Math.round(item.qty*item.price),0);
-  return {subtotal,discount,tax,total:subtotal-discount+tax};
+  const raw=items.map(item=>Math.round(item.qty*item.price));
+  const subtotal=raw.reduce((sum,value)=>sum+value,0);
+  const automatic=items.some(item=>vatRates.includes(item.vat));
+  let running=0,allocated=0;
+  const lines=items.map((item,i)=>{
+    running+=raw[i];
+    const cumulative=subtotal?Math.round(discount*(running/subtotal)):0;
+    const base=raw[i]-(cumulative-allocated);
+    allocated=cumulative;
+    const vat=Math.round(base*(item.vat||0)/100);
+    return {...item,base,tax:vat,total:base+vat};
+  });
+  const calculated=automatic?lines.reduce((sum,item)=>sum+item.tax,0):tax;
+  return {subtotal,discount,tax:calculated,total:subtotal-discount+calculated,lines};
 }
-function salesLines(items) {
-  return table(["Hạng mục","ĐVT","SL","Đơn giá","Thành tiền"],items.map((item)=>`<tr>
+function salesLines(items,discount=0) {
+  return table(["Hạng mục","ĐVT","SL","Đơn giá chưa VAT","VAT","Tiền VAT","Tổng dòng"],salesAmounts(items,discount).lines.map((item)=>`<tr>
     <td>${esc(item.name)}</td><td>${esc(item.unit)}</td><td>${number.format(item.qty)}</td>
-    <td class="text-right">${money(item.price)}</td><td class="text-right">${money(Math.round(item.qty*item.price))}</td></tr>`));
+    <td class="text-right">${money(item.price)}</td><td>${item.vat===undefined?"—":item.vat+"%"}</td><td class="text-right">${money(item.tax)}</td><td class="text-right">${money(item.total)}</td></tr>`));
 }
 function lineRow(item={name:"",unit:"Cái",qty:1,price:""}) {
   return `<div class="sales-line">
     <label class="field">Hạng mục<input class="input" name="line-name" maxlength="120" required value="${esc(item.name)}"></label>
     <label class="field">ĐVT<input class="input" name="line-unit" maxlength="20" required value="${esc(item.unit)}"></label>
     <label class="field">Số lượng<input class="input" type="number" name="line-qty" required min=".001" max="100000" step=".001" value="${esc(item.qty)}"></label>
-    <label class="field">Đơn giá (₫)<input class="input" type="number" name="line-price" required min="0" max="${maxSalesValue}" step="1" value="${esc(item.price)}"></label>
+    <label class="field">Giá chưa VAT (₫)<input class="input" type="number" name="line-price" required min="0" max="${maxSalesValue}" step="1" value="${esc(item.price)}"></label>
+    <label class="field">VAT<select class="input" name="line-vat" required><option value="" ${item.vat===undefined?"selected":""}>Chọn</option>${vatOptions(item.vat)}</select></label>
     <div class="line-sum"><small>Thành tiền</small><output data-line-total>—</output></div>
     <button type="button" class="btn light compact line-remove" data-action="remove-line" aria-label="Xóa hạng mục">${icon("close")}</button></div>`;
 }
@@ -37,22 +52,18 @@ function lineEditor(items) {
 }
 function readSalesLines(form) {
   const names=form.getAll("line-name"), units=form.getAll("line-unit");
-  const quantities=form.getAll("line-qty"), prices=form.getAll("line-price");
-  return names.map((name,i)=>({name:name.trim(),unit:units[i].trim(),qty:Number(quantities[i]),price:Number(prices[i])}));
+  const quantities=form.getAll("line-qty"), prices=form.getAll("line-price"), rates=form.getAll("line-vat");
+  return names.map((name,i)=>({name:name.trim(),unit:units[i].trim(),qty:Number(quantities[i]),price:Number(prices[i]),vat:rates[i]===""?undefined:Number(rates[i])}));
 }
 function validSalesLines(items) {
-  return items.length>=1 && items.length<=40 && items.every(({name,unit,qty,price})=>
+  return items.length>=1 && items.length<=40 && items.every(({name,unit,qty,price,vat})=>
     name && unit && Number.isFinite(qty) && qty>=.001 && qty<=100000 &&
-    Number.isSafeInteger(price) && price>=0 && price<=maxSalesValue);
+    Number.isSafeInteger(price) && price>=0 && price<=maxSalesValue && vatRates.includes(vat));
 }
 function refreshSalesForm(form) {
-  for (const line of form.querySelectorAll(".sales-line")) {
-    const qty=Number(line.querySelector("[name=line-qty]").value);
-    const price=Number(line.querySelector("[name=line-price]").value);
-    line.querySelector("[data-line-total]").textContent=money(Math.round(qty*price));
-  }
   const values=new FormData(form);
-  const summary=salesAmounts(readSalesLines(values),Number(values.get("discount")||0),Number(values.get("tax")||0));
+  const summary=salesAmounts(readSalesLines(values),Number(values.get("discount")||0));
+  form.querySelectorAll("[data-line-total]").forEach((output,i)=>{output.textContent=money(summary.lines[i].total);});
   form.querySelector("[data-sales-total]").textContent=money(summary.total);
   const removes=form.querySelectorAll(".line-remove");
   for (const button of removes) button.disabled=removes.length===1;
@@ -107,15 +118,17 @@ function quotePage() {
   const quoteBody=quote?`<div class="quote-sheet-head"><div><div class="kicker">Công ty ${companyName(order.company)}</div><h2>${esc(quote.id)}</h2></div>
   ${chip(quoteLabel(quote.status))}</div>
   <div class="quote-facts"><div><small>Khách hàng</small><strong>${esc(order.customer)}</strong></div><div><small>Hiệu lực đến</small><strong>${date(quote.validUntil)}</strong></div>${quote.terms?`<div><small>Điều kiện báo giá</small><strong>${esc(quote.terms)}</strong></div>`:""}</div>
-  ${salesLines(quote.items)}
-  <dl class="quote-totals"><div><dt>Tạm tính</dt><dd>${money(amounts.subtotal)}</dd></div><div><dt>Chiết khấu</dt><dd>${money(amounts.discount)}</dd></div><div><dt>Tiền thuế nhập</dt><dd>${money(amounts.tax)}</dd></div>
+  ${salesLines(quote.items,quote.discount)}
+  <dl class="quote-totals"><div><dt>Tạm tính</dt><dd>${money(amounts.subtotal)}</dd></div><div><dt>Chiết khấu</dt><dd>${money(amounts.discount)}</dd></div><div><dt>Tiền VAT</dt><dd>${money(amounts.tax)}</dd></div>
   <div class="grand"><dt>Tổng báo giá</dt><dd>${money(amounts.total)}</dd></div></dl>`
     : `<p class="muted">${editable?"Lập báo giá từ các hạng mục của đơn hàng.":"Hồ sơ này chưa có báo giá chi tiết trong dữ liệu minh họa."}</p>`;
   return heading("Báo giá đơn hàng",`${esc(order.id)} · ${esc(order.title)}`,
     linkBtn("Danh sách báo giá",root+"/bao-gia",{icon:"back"})+linkBtn("Mở đơn hàng",orderRoute(order),{icon:"link"}))+
     `<div class="pack-grid"><section class="panel panel-pad quote-sheet">${quoteBody}
     ${editable && order.step<3 && quote?.status==="draft"?'<p class="notice">Có thể chuẩn bị bản nháp. Hồ sơ sẽ được duyệt báo giá khi hoàn tất các bước trước đó.</p>':""}
-    ${actions.length?`<div class="actions quote-actions">${actions.join("")}</div>`:""}</section>
+    ${actions.length?`<div class="actions quote-actions">${actions.join("")}</div>`:""}
+    ${quote?commercialActions(["approved","sent","accepted"].includes(quote.status)):""}
+    ${acceptedQuote(order)?`<div class="actions quote-actions">${linkBtn("Mở hợp đồng",contractRoute(order),{icon:"arrow"})}</div>`:""}</section>
     <section class="panel panel-pad"><h2>Lịch sử phiên bản</h2><ul class="sublist">${order.quotes?.length ? order.quotes.slice().reverse().map((item)=>`<li>
       ${btn(item.id,"select-quote",{value:item.id,style:"quiet compact"})} ${chip(quoteLabel(item.status),"neutral")}
       <small>${when(item.updatedAt)}${item.reference?" · "+esc(item.reference):""}</small></li>`).join(""):"<li>Chưa có phiên bản.</li>"}</ul></section></div>`;
@@ -130,7 +143,6 @@ function editQuote(revise) {
     <p>${esc(order.id)} · ${esc(order.customer)}</p>
     ${lineEditor(values.items)}
     <div class="form-grid"><label class="field">Chiết khấu (₫)<input class="input" type="number" name="discount" min="0" max="${maxSalesValue}" step="1" value="${values.discount}" required></label>
-    <label class="field">Tiền thuế nếu áp dụng (₫)<input class="input" type="number" name="tax" min="0" max="${maxSalesValue}" step="1" value="${values.tax}" required></label>
     <label class="field">Hiệu lực đến<input class="input" type="date" name="validUntil" min="${dayInVietnam()}" value="${values.validUntil}" required></label>
     <label class="field">Điều kiện báo giá<input class="input" name="terms" maxlength="180" placeholder="Giao hàng hoặc thanh toán" value="${esc(values.terms)}"></label></div>
     <div class="sales-grand"><span>Tổng báo giá</span><output data-sales-total></output></div>
@@ -145,8 +157,8 @@ function saveQuote(form,el) {
   if ((previous?.id||"")!==el.dataset.current || (previous && (revise ? !["approved","sent"].includes(previous.status) : previous.status!=="draft"))) return;
   const items=readSalesLines(form);
   const discount=Number(form.get("discount"));
-  const tax=Number(form.get("tax"));
-  const amounts=salesAmounts(items,discount,tax);
+  const amounts=salesAmounts(items,discount);
+  const tax=amounts.tax;
   const validUntil=String(form.get("validUntil"));
   if (!validSalesLines(items) || !Number.isSafeInteger(discount) || !Number.isSafeInteger(tax) ||
       discount<0 || discount>amounts.subtotal || tax<0 || amounts.total<=0 || amounts.total>maxSalesValue) {
@@ -215,8 +227,8 @@ function quoteFile(order,quote) {
   <style>body{margin:40px auto;padding:0 18px;max-width:860px;font:14px/1.55 Arial,sans-serif;color:#192b25}header{border-top:5px solid #1d624e;padding-top:14px}h1{margin:8px 0}.demo{color:#85582c;font-weight:bold;font-size:11px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #d9e6de;text-align:left}th{background:#eaf2e9}.text-right{text-align:right}dl{width:min(300px,100%);margin-left:auto}dl div{display:flex;justify-content:space-between;border-bottom:1px solid #d9e6de;padding:5px}dd{margin:0}footer{margin-top:24px} @media print{body{margin:0}}</style>
   <header><div>Công ty ${esc(companyName(order.company))}</div><div class="demo">BẢN MẪU · DỮ LIỆU GIẢ ĐỊNH</div><h1>Báo giá</h1><strong>${esc(quote.id)}</strong></header>
   <p>Khách hàng <strong>${esc(order.customer)}</strong> · Đơn hàng <strong>${esc(order.id)}</strong></p><p>Hiệu lực đến ${date(quote.validUntil)}</p>
-  ${salesLines(quote.items)}<dl><div><dt>Tạm tính</dt><dd>${money(amounts.subtotal)}</dd></div><div><dt>Chiết khấu</dt><dd>${money(amounts.discount)}</dd></div>
-  <div><dt>Tiền thuế nhập</dt><dd>${money(amounts.tax)}</dd></div><div><dt><strong>Tổng báo giá</strong></dt><dd><strong>${money(amounts.total)}</strong></dd></div></dl>
+  ${salesLines(quote.items,quote.discount)}<dl><div><dt>Tạm tính</dt><dd>${money(amounts.subtotal)}</dd></div><div><dt>Chiết khấu</dt><dd>${money(amounts.discount)}</dd></div>
+  <div><dt>Tiền VAT</dt><dd>${money(amounts.tax)}</dd></div><div><dt><strong>Tổng báo giá</strong></dt><dd><strong>${money(amounts.total)}</strong></dd></div></dl>
   ${quote.terms?`<p>Điều kiện báo giá: ${esc(quote.terms)}</p>`:""}<footer>Hồ sơ minh họa. Có thể in hoặc lưu PDF từ trình duyệt.</footer></html>`;
 }
 function downloadQuote(id) {

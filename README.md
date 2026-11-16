@@ -22,3 +22,7 @@ Chỉ dùng dữ liệu giả định. Tài khoản, quyền, gửi email và nh
 | Dữ liệu cá nhân | Kiểm kê dữ liệu khách hàng, người nhận, nhân sự và bảo hiểm. Chốt mục đích, căn cứ xử lý, phạm vi cấp quyền, lưu giữ và xóa, đáp ứng quyền của chủ thể và đánh giá tác động theo trường hợp áp dụng. | [Luật Bảo vệ dữ liệu cá nhân 91/2025/QH15](https://vanban.chinhphu.vn/?docid=214590&pageid=27160), [Nghị định 356/2025/NĐ-CP](https://vanban.chinhphu.vn/?docid=216387&pageid=27160) |
 
 Mẫu xuất chưa có thông tin đăng ký và chữ ký thật. Kế toán phụ trách từng pháp nhân cần duyệt bộ mẫu và quy tắc trước khi sử dụng vào giao dịch, ghi sổ hoặc nộp hồ sơ. Công nợ, giữ lại bảo hành, kho, nhân sự, KPI và nhắc việc được minh họa để xác nhận phạm vi.
+
+Đơn hàng và báo giá cho chọn VAT 0%, 5%, 8% hoặc 10% theo hạng mục. Bản demo tính trên giá chưa VAT sau khi phân bổ chiết khấu của đơn. Người lập phải xác định mức áp dụng theo hàng hóa, dịch vụ và thời điểm. Mức 8% thuộc chính sách giảm thuế có phạm vi và thời hạn. [Luật Thuế GTGT](https://vanban.chinhphu.vn/?docid=212476&pageid=27160), [Nghị quyết 204/2025/QH15](https://vanban.chinhphu.vn/?docid=214209&pageid=27160) và [Nghị định 174/2025/NĐ-CP](https://vanban.chinhphu.vn/?docid=214310&pageid=27160).
+
+Báo giá và hợp đồng có mẫu Excel, Word và mẫu in/lưu PDF. Bản hợp đồng cuối được khóa theo báo giá đã chấp thuận. Thư .eml kèm bản Word và Excel mở trong ứng dụng thư. Kho theo dõi giá nhập chưa VAT và giá gồm VAT theo công ty. Sổ lưu trữ trong khu kế toán tra cứu bộ đã duyệt theo mã đơn. Dữ liệu demo lưu trên trình duyệt.

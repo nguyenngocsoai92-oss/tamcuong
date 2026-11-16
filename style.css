@@ -106,7 +106,7 @@
 .summary-chevron{font-size:18px;color:#406d5d;transition:transform .18s}
 .process-stage[open] .summary-chevron{transform:rotate(45deg)}
 .process-body{padding:0 13px 12px}
-.pack-milestones{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;list-style:none;padding:0;margin:0 0 14px}
+.pack-milestones{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;list-style:none;padding:0;margin:0 0 14px}
 .pack-milestones li{display:flex;gap:8px;align-items:center;min-height:49px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;color:#4b6157;font-size:12px;font-weight:750}
 .pack-milestones li span{flex-shrink:0;width:25px;height:25px;display:grid;place-items:center;background:#edf2ec;border-radius:50%;font-size:11px}
 .pack-milestones li span svg{width:15px;height:15px}
@@ -130,7 +130,7 @@
 .line-editor-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
 .line-editor-head h3{font-size:14px}
 .sales-line{
-  display:grid;grid-template-columns:minmax(145px,2.2fr) minmax(58px,.7fr) minmax(63px,.72fr) minmax(100px,1.2fr) minmax(90px,.95fr) auto;
+  display:grid;grid-template-columns:minmax(135px,2.2fr) minmax(49px,.65fr) minmax(62px,.72fr) minmax(106px,1.2fr) minmax(66px,.7fr) minmax(78px,.9fr) auto;
   gap:8px;align-items:end;padding:9px 8px;border:1px solid var(--line);border-radius:8px;background:#f7faf7
 }
 .sales-line+.sales-line{margin-top:6px}
@@ -153,12 +153,13 @@
 .quote-totals dd{margin:0;font-variant-numeric:tabular-nums}
 .quote-totals .grand{background:var(--soft);border-radius:7px;color:var(--green);font-weight:800}
 .quote-sheet .notice,.quote-actions{margin-top:14px}
-@media(max-width:650px){
+@media(max-width:665px){
   .sales-line{grid-template-columns:1fr 1fr}
   .sales-line label:first-child{grid-column:1/-1}
   .line-sum{min-height:39px;gap:3px}
   .line-remove{grid-column:2;justify-self:end}
 }
+@media(max-width:570px){.pack-milestones{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:950px){
   .hero{grid-template-columns:minmax(320px,1fr) minmax(0,.74fr);min-height:310px;padding:0}
   .hero-copy{padding:34px 23px 34px 33px}

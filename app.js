@@ -69,9 +69,10 @@ function linkBtn(text, route, options = {}) {
 const companyRoute = (id) => "cong-ty/" + id;
 const orderRoute = (o, board = false) => (board ? "hdqt" : companyRoute(o.company)) + "/ho-so/" + encodeURIComponent(o.id);
 const quoteRoute = (o) => companyRoute(o.company) + "/bao-gia/" + encodeURIComponent(o.id);
+const contractRoute = (o) => companyRoute(o.company) + "/hop-dong/" + encodeURIComponent(o.id);
 const packRoute = (o, kind = "sales") => "ke-toan/" + o.company + "/ho-so/" + encodeURIComponent(o.id) + "/" + (kind==="sales" ? "ban-hang" : "mua-hang");
 const viewSlug = {
-  dashboard:"tong-quan", orders:"ho-so", quotes:"bao-gia", process:"quy-trinh", kpi:"bao-cao",
+  dashboard:"tong-quan", orders:"ho-so", quotes:"bao-gia", contracts:"hop-dong", process:"quy-trinh", kpi:"bao-cao",
   partners:"doi-tac", inventory:"mua-hang-kho", finance:"tai-chinh",
   people:"nhan-su", admin:"quan-tri", reminders:"nhac-viec",
 };
@@ -131,7 +132,7 @@ function heading(title, description, actions = "") {
   return `<header class="work-head"><div><div class="kicker">${esc(scope)}</div><h1>${title}</h1>${description ? `<p>${description}</p>` : ""}</div><div class="actions">${actions}</div></header>`;
 }
 function navItem(id, label, graphic) {
-  const active = view === id || (view === "detail" && id === "orders") || (view === "quote" && id === "quotes");
+  const active = view === id || (view === "detail" && id === "orders") || (view === "quote" && id === "quotes") || (view==="contract" && id==="contracts");
   const root = session?.area === "board" ? "hdqt" : session?.area === "company" ? companyRoute(session.company) : "";
   const href = id==="accounting" ? "ke-toan/"+session.company : root+"/"+viewSlug[id];
   return `<a class="nav ${active ? "active" : ""}" href="#${href}" data-route="${href}" ${active?'aria-current="page"':""}>${icon(graphic)}${label}</a>`;
@@ -139,7 +140,7 @@ function navItem(id, label, graphic) {
 function workspace(body) {
   let nav = "";
   if (session?.area === "board") nav = navItem("dashboard","Báo cáo điều hành","board") + navItem("orders","Đơn hàng","box") + navItem("kpi","Báo cáo và KPI","grid");
-  if (session?.area === "company") nav = navItem("dashboard","Tổng quan","board") + navItem("orders","Đơn hàng và dự án","box") + navItem("quotes","Báo giá","doc") + navItem("process","Quy trình nghiệp vụ","steps") + Object.entries(modules).map(([id, entry]) => navItem(id,entry.name,entry.icon)).join("") + navItem("kpi","Báo cáo và KPI","grid");
+  if (session?.area === "company") nav = navItem("dashboard","Tổng quan","board") + navItem("orders","Đơn hàng và dự án","box") + navItem("quotes","Báo giá","doc") + navItem("contracts","Hợp đồng","doc") + navItem("process","Quy trình nghiệp vụ","steps") + Object.entries(modules).map(([id, entry]) => navItem(id,entry.name,entry.icon)).join("") + navItem("kpi","Báo cáo và KPI","grid");
   if (session?.area === "accounting") nav = navItem("accounting","Hồ sơ chứng từ","doc");
   return `<div class="workspace"><nav class="side" aria-label="Khu làm việc"><p>${session?.account || "Bản demo"}</p>${nav}</nav><main class="work" id="content">${body}${savedLocally ? "" : '<p class="notice warn">Trình duyệt đang chặn lưu dữ liệu. Thay đổi chỉ tồn tại trong phiên mở này.</p>'}</main></div>`;
 }
@@ -231,12 +232,13 @@ function detail() {
     ${received?`<p class="gate-line"><strong>Hồ sơ đã ghi</strong> ${esc(received.reference)} · ${when(received.at)}</p>`:""}
     ${inspected===8?`<p>Đã xác nhận ${o.delivered}/${o.batches} đợt bàn giao.</p>`:""}
     <div class="actions">
-    ${active && inspected===o.step && o.step<11 ? (o.paused ? btn("Tiếp tục xử lý","resume",{value:o.id}) : (o.step===3 ? linkBtn("Xử lý báo giá",quoteRoute(o),{style:"",icon:"doc"}) : btn(stage.action,"advance",{value:o.id,icon:"check"}))+btn("Tạm dừng","pause",{value:o.id,style:"light"})) : ""}
+    ${active && inspected===o.step && o.step<11 ? (o.paused ? btn("Tiếp tục xử lý","resume",{value:o.id}) : (o.step===3 ? linkBtn("Xử lý báo giá",quoteRoute(o),{icon:"doc"}) : o.step===4&&acceptedQuote(o)&&!o.contract?.final ? linkBtn("Soạn hợp đồng",contractRoute(o),{icon:"doc"}) : btn(stage.action,"advance",{value:o.id,icon:"check"}))+btn("Tạm dừng","pause",{value:o.id,style:"light"})) : ""}
     ${active && readStage.link ? linkBtn(modules[readStage.link].name,root+"/"+viewSlug[readStage.link],{style:"light",icon:"arrow"}) : ""}</div>
-    ${o.items?.length ? `<hr class="rule"><h2>Hạng mục đơn hàng</h2>${salesLines(o.items)}${acceptedQuote(o)?`<p class="muted">Tổng đơn đã áp dụng chiết khấu và tiền thuế theo báo giá được chấp thuận.</p>`:""}` : ""}
+    ${o.items?.length ? `<hr class="rule"><h2>Hạng mục đơn hàng</h2>${salesLines(o.items,acceptedQuote(o)?.discount||0)}${acceptedQuote(o)?`<p class="muted">Tổng đơn theo báo giá được chấp thuận.</p>`:""}` : ""}
     </section>
     <div><section class="panel panel-pad related"><h2>Hồ sơ liên quan</h2><ul class="sublist">
     ${active ? `<li>${linkBtn("Báo giá của đơn",quoteRoute(o),{style:"quiet compact",icon:"doc"})}<small>${quoteLabel(latestQuote(o)?.status)}</small></li>` : ""}
+    ${active && acceptedQuote(o) ? `<li>${linkBtn("Hợp đồng của đơn",contractRoute(o),{style:"quiet compact",icon:"doc"})}<small>${o.contract?.final?"Bản cuối":o.contract?"Bản nháp":"Chưa lập"}</small></li>`:""}
     ${Object.entries(packs).map(([key,pack])=>`<li>${linkBtn(pack.label,packRoute(o,key),{style:"quiet compact",icon:"link"})}<small>${packStatus(data.packs[packKey(o,key)]?.status)}</small></li>`).join("")}
     </ul></section>${o.deliveryAddress || o.contact ? `<section class="panel panel-pad"><h2>Thông tin giao hàng</h2><ul class="sublist">${o.contact?`<li>${esc(o.contact)}<small>Đầu mối liên hệ</small></li>`:""}${o.deliveryAddress?`<li>${esc(o.deliveryAddress)}<small>Địa điểm giao</small></li>`:""}</ul></section>`:""}<section class="panel panel-pad"><h2>Nhật ký nghiệp vụ</h2><ul class="sublist">${o.history.slice().reverse().slice(0,6).map((entry)=>`<li>${esc(entry.label)}<small>${esc(entry.actor)} · ${when(entry.at)}</small></li>`).join("")}</ul></section></div></div>`;
 }
@@ -244,6 +246,7 @@ function modulePage(key) {
   const module = modules[key];
   const entries = data.checklists[session.company + ":" + key] || {};
   return heading(module.name,"Danh sách mẫu theo phạm vi công ty.",linkBtn("Hồ sơ nghiệp vụ",companyRoute(session.company)+"/ho-so",{icon:"box"}))+
+    (key==="inventory"?inventoryPricing():"")+
     section("Danh sách theo dõi",table([...module.fields,"Trạng thái",""],module.rows.map(([name,info,owner,status],i) => {
       const latest = entries[i];
       return `<tr><td><strong>${name}</strong></td><td>${info}</td><td>${owner}</td><td>${chip(latest?.status || status, (latest?.status || status).startsWith("Đã")?"":"warn")}${latest ? `<small>${when(latest.at)}</small>` : ""}</td><td>${btn("Xác nhận","check-module",{value:i,style:"light compact",disabled:!!latest || status.startsWith("Đã")})}</td></tr>`;
@@ -280,6 +283,7 @@ function packMilestones(bundle) {
     ["Lập hồ sơ",!!bundle],
     ["Kiểm tra và duyệt",bundle?.status==="approved"],
     ["Gửi hồ sơ qua email",!!bundle?.dispatches?.length],
+    ["Lưu trữ",!!bundle?.archivedAt],
   ];
   const next = states.findIndex(([,done])=>!done);
   return `<ol class="pack-milestones">${states.map(([label,done],i)=>`<li class="${done?"done":i===next?"current":""}"><span>${done?icon("check"):i+1}</span>${label}</li>`).join("")}</ol>`;
@@ -311,6 +315,9 @@ function accountingPage() {
   return heading("Hồ sơ chứng từ",`Công ty ${companyName(session.company)} · ${reviewer?"Người duyệt hồ sơ":"Người lập và gửi hồ sơ"}.`,
     btn(reviewer ? "Đổi sang người lập" : "Đổi sang người duyệt","account-signin",{style:"light",value:reviewer?"maker":"reviewer"}))+
     `${packMilestones(bundle)}
+    <div class="notice"><strong>Hồ sơ ${esc(o.id)}.</strong> ${linkBtn("Đơn hàng",orderRoute(o),{style:"quiet compact",icon:"link"})}
+    ${acceptedQuote(o)?linkBtn("Báo giá chấp thuận",quoteRoute(o),{style:"quiet compact",icon:"doc"})+linkBtn("Hợp đồng",contractRoute(o),{style:"quiet compact",icon:"doc"}):""}
+    ${bundle?.archivedAt?`<span>${chip("Đã lưu trữ mẫu")} · ${when(bundle.archivedAt)}</span>`:""}</div>
     <div class="pack-grid"><section class="panel panel-pad"><h2>Danh mục chứng từ</h2>${controls}
     <div class="pack-meta"><div class="actions">${chip(packStatus(bundle?.status),bundle?.status==="returned"?"warn":"")}${stateChip(o)}</div>${linkBtn("Mở hồ sơ nguồn",orderRoute(o),{style:"quiet compact",icon:"link"})}</div>
     <form id="pack-form" data-order="${esc(o.id)}">
@@ -318,7 +325,8 @@ function accountingPage() {
       <label class="check"><input type="checkbox" name="evidence" ${bundle?.evidence?"checked":""} ${locked||reviewer?"disabled":""}> ${pack.evidence}</label>
       ${!locked?'<p class="muted">Kiểm tra đủ chứng từ và xác nhận đối soát trước khi gửi phê duyệt.</p>':""}
       <p class="error" id="pack-error" aria-live="polite"></p>
-      <div class="actions">${actions}${bundle?.status==="approved" ? btn("Tải bộ hồ sơ nội bộ","download-pack",{icon:"down",style:"light"}) : ""}</div>
+      <div class="actions">${actions}${bundle?.status==="approved" ? btn("Tải bộ hồ sơ nội bộ","download-pack",{icon:"down",style:"light"}) : ""}
+      ${bundle?.status==="approved"&&!bundle.archivedAt&&!reviewer?btn("Đánh dấu lưu trữ","archive-pack",{style:"light",icon:"box"}):""}</div>
     </form></section>
     <div>
     <section class="panel panel-pad dispatch-panel"><div class="dispatch-icon">${icon("mail")}</div><h2>Email gửi hồ sơ</h2>
@@ -326,7 +334,16 @@ function accountingPage() {
     ${emailAction?`<div class="actions dispatch-actions">${emailAction}</div>`:""}
     ${lastDispatch?`<ul class="sublist"><li>${chip("Đã mô phỏng gửi")}<small>${esc(lastDispatch.recipient)} · ${when(lastDispatch.at)}</small></li></ul>`:""}
     </section><section class="panel panel-pad"><h2>Nhật ký xử lý</h2><ul class="sublist">${packHistory(bundle)}</ul>
-    <hr class="rule"><h2>Hồ sơ nguồn</h2><ul class="sublist"><li>${esc(o.id)} · ${esc(o.title)}<small>${companyName(o.company)} · ${pack.label}</small></li></ul></section></div></div>`;
+    <hr class="rule"><h2>Hồ sơ nguồn</h2><ul class="sublist"><li>${esc(o.id)} · ${esc(o.title)}<small>${companyName(o.company)} · ${pack.label}</small></li></ul></section></div></div>`+archiveRegister(list);
+}
+function archiveRegister(orders) {
+  const archived=orders.flatMap(order=>Object.keys(packs).flatMap(kind=>{
+    const bundle=data.packs[packKey(order,kind)];
+    return bundle?.archivedAt?[{order,kind,bundle}]:[];
+  })).sort((a,b)=>b.bundle.archivedAt.localeCompare(a.bundle.archivedAt));
+  return section("Sổ lưu trữ hồ sơ",table(["Mã đơn hàng","Bộ chứng từ","Ngày lưu",""],archived.map(({order,kind,bundle})=>
+    `<tr><td>${esc(order.id)}</td><td>${packs[kind].label}</td><td>${when(bundle.archivedAt)}</td><td>${linkBtn("Mở bản lưu",packRoute(order,kind),{style:"light compact",icon:"link"})}</td></tr>`)),
+    "Bản lưu mẫu theo công ty. Hồ sơ đã duyệt giữ dữ liệu tại thời điểm trình duyệt.");
 }
 function currentPack() {
   if (session?.area !== "accounting") return {};
@@ -370,8 +387,10 @@ function documentMarkup(order, item, bundle) {
   <hr class="rule">${rows.map(([label,value])=>`<p><strong>${esc(label)}</strong> · ${esc(value)}</p>`).join("")}${quote?salesLines(quote.items):""}</article>`;
 }
 function documentFile(order,item,bundle) {
-  const quote=item[0]==="bao-gia" ? acceptedQuote(bundle?.snapshot ?? order) : null;
-  if (quote) return quoteFile(order,quote);
+  const source=bundle?.snapshot ?? order;
+  const quote=acceptedQuote(source);
+  if (quote&&item[0]==="bao-gia") return commercialHtml(source,quote);
+  if (quote&&item[0]==="hop-dong"&&source.contract?.final) return commercialHtml(source,quote,source.contract);
   const {title,rows} = documentDetails(order,item,bundle);
   return `<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(title)}</title>
   <style>body{max-width:760px;margin:40px auto;padding:0 20px;font:14px/1.55 Arial,sans-serif;color:#192b25}header{border-top:5px solid #1d624e;border-bottom:1px solid #d3dfd5;padding:17px 0 12px}h1{font-size:30px;letter-spacing:-.02em;margin:8px 0 0}dl>div{display:grid;grid-template-columns:minmax(140px,31%) 1fr;gap:10px;padding:9px 2px;border-bottom:1px solid #e3eae4;break-inside:avoid}dt{font-weight:bold;color:#345b4b}dd{margin:0;overflow-wrap:anywhere}.demo{font-size:11px;color:#754516;font-weight:bold;font-variant:small-caps}.company{font-size:12px;color:#376451;font-weight:bold}footer{margin-top:22px;color:#506359;font-size:12px}@media(max-width:520px){dl>div{grid-template-columns:1fr;gap:2px}}@media print{body{margin:0}footer{color:#333}}</style>
@@ -537,6 +556,8 @@ function render() {
   else if (view==="detail" && session.area!=="accounting") body=detail();
   else if (view==="quotes" && session.area==="company") body=quotesPage();
   else if (view==="quote" && session.area==="company") body=quotePage();
+  else if (view==="contract" && session.area==="company") body=contractPage();
+  else if (view==="contracts" && session.area==="company") body=contractsPage();
   else if (view==="process" && session.area==="company") body=processPage();
   else if (view==="accounting" && session.area==="accounting") body=accountingPage();
   else if (view==="kpi" && session.area!=="accounting") body=kpiPage();
@@ -553,6 +574,7 @@ function activeRoute() {
   }
   const root=session.area==="board" ? "hdqt" : companyRoute(session.company);
   if (view==="quote" && selected.order) return root+"/bao-gia/"+encodeURIComponent(selected.order);
+  if (view==="contract" && selected.order) return root+"/hop-dong/"+encodeURIComponent(selected.order);
   return view==="detail" && selected.order ? root+"/ho-so/"+encodeURIComponent(selected.order) : root+"/"+(viewSlug[view]||viewSlug.dashboard);
 }
 function syncRoute() {
@@ -568,7 +590,7 @@ function route(routeText) {
   let target;
   if (area==="hdqt" && !orderID) target={area:"board",view:viewForSlug[companyOrView]||"dashboard",order:companyOrView==="ho-so"?destination:null};
   if (area==="cong-ty" && Object.hasOwn(companies,companyOrView) && !suffix) {
-    target={area:"company",company:companyOrView,view:viewForSlug[destination]||"dashboard",order:["ho-so","bao-gia"].includes(destination)?orderID:null};
+    target={area:"company",company:companyOrView,view:destination==="hop-dong"&&orderID?"contract":viewForSlug[destination]||"dashboard",order:["ho-so","bao-gia","hop-dong"].includes(destination)?orderID:null};
   }
   if (area==="ke-toan" && (!companyOrView || Object.hasOwn(companies,companyOrView)) && !extra) {
     target={area:"accounting",company:companyOrView,view:"accounting",order:destination==="ho-so"?orderID:null,kind:suffix==="mua-hang"?"buying":"sales"};
@@ -592,6 +614,7 @@ function openRoute(target) {
       selected.order=o.id; selected.stage=null; selected.quote=null;
       if (target.area==="accounting") {selected.kind=target.kind;show("accounting");}
       else if (target.area==="company" && target.view==="quotes") show("quote");
+      else if (target.area==="company" && target.view==="contract") show("contract");
       else show("detail");
       return;
     }
@@ -602,7 +625,7 @@ function openRoute(target) {
     if (target.order===undefined || !target.order) selected.order=null;
     selected.kind=target.kind || "sales";
   }
-  const allowed=target.area==="board"?["dashboard","orders","kpi"]:["dashboard","orders","quotes","process","kpi",...Object.keys(modules)];
+  const allowed=target.area==="board"?["dashboard","orders","kpi"]:["dashboard","orders","quotes","contracts","process","kpi",...Object.keys(modules)];
   show(target.area==="accounting"?"accounting":allowed.includes(target.view)?target.view:"dashboard");
 }
 function log(label,actor=session?.account||"Người dùng demo") { return {label,actor,at:new Date().toISOString()}; }
@@ -632,7 +655,7 @@ function newOrder() {
     <label class="field">Loại đơn<select class="input" name="track">${Object.entries(tracks).map(([key,v])=>`<option value="${key}" ${key==="direct"?"selected":""}>${v.label}</option>`).join("")}</select></label>
     <label class="field">Số đợt giao<input class="input" name="batches" type="number" min="1" max="10" value="1" required></label>
     <label class="field">Ngày dự kiến giao<input class="input" name="due" type="date"></label></div>
-    ${lineEditor([undefined])}<div class="sales-grand"><span>Giá trị dự kiến</span><output data-sales-total></output></div>
+    ${lineEditor([undefined])}<p class="muted">Chọn VAT theo từng hạng mục và điều kiện áp dụng.</p><div class="sales-grand"><span>Tổng dự kiến gồm VAT</span><output data-sales-total></output></div>
     <p class="error" id="dialog-error" aria-live="polite"></p><div class="actions"><button class="btn light" type="submit" name="intent" value="order">Lưu đơn hàng</button>
     <button class="btn" type="submit" name="intent" value="quote">Lưu và lập báo giá</button></div></form>`);
   refreshSalesForm(modal.querySelector("#create-order"));
@@ -682,7 +705,7 @@ function createOrder(form,intent) {
   if (intent==="quote") editQuote(false);
 }
 function advanceOrder(order,step,form) {
-  if (!canWork(order) || order.paused || order.step!==step || step===3 || step>=11 || !form.has("confirm")) return;
+  if (!canWork(order) || order.paused || order.step!==step || step===3 || (step===4&&acceptedQuote(order)&&!order.contract?.final) || step>=11 || !form.has("confirm")) return;
   const note=String(form.get("note")||"").trim();
   const reference=String(form.get("reference")||"").trim();
   if (!reference) {fieldError("dialog-error","Điền mã tham chiếu hồ sơ đầu ra.");return;}
@@ -775,6 +798,17 @@ const actionHandlers={
   "select-quote":(value)=>{selected.quote=value;render();},
   "quote-transition":quoteTransitionDialog,
   "download-quote":downloadQuote,
+  "edit-contract":editContract,
+  "commercial-export":commercialExport,
+  "commercial-email":commercialEmail,
+  "edit-stock-price":editStockPrice,
+  "archive-pack":()=>{
+    const {bundle}=currentPack();
+    if (session?.role!=="maker"||bundle?.status!=="approved"||bundle.archivedAt) return;
+    bundle.archivedAt=new Date().toISOString();
+    bundle.history.push(log("Đã đánh dấu lưu trữ bộ hồ sơ mẫu"));
+    save();render();
+  },
   order:openOrder,
   track:(value)=>{if(view==="process"&&Object.hasOwn(tracks,value)){selected.track=value;render();}},
   "inspect-stage":(value)=>{
@@ -833,7 +867,7 @@ document.addEventListener("click",(event)=>{
 });
 document.addEventListener("input",(event)=>{
   const form=event.target.closest("#create-order, #quote-form");
-  if (form && ["line-qty","line-price","discount","tax"].includes(event.target.name)) refreshSalesForm(form);
+  if (form && ["line-qty","line-price","line-vat","discount"].includes(event.target.name)) refreshSalesForm(form);
 });
 document.addEventListener("change",(event)=>{
   const {id,value}=event.target;
@@ -873,6 +907,15 @@ document.addEventListener("submit",(event)=>{
     case "create-order": createOrder(form,event.submitter?.value);break;
     case "quote-form": saveQuote(form,el);break;
     case "quote-transition-form": transitionQuote(el.dataset.status,el.dataset.quote,form);break;
+    case "contract-form": saveContract(form,el,event.submitter?.value);break;
+    case "stock-price-form": saveStockPrice(form,el);break;
+    case "commercial-email": {
+      const submit=event.submitter;
+      if(!submit||submit.disabled)break;
+      submit.disabled=true;
+      void saveCommercialEmail(form,el).catch(()=>fieldError("dialog-error","Chưa tạo được email.")).finally(()=>{submit.disabled=false;});
+      break;
+    }
     case "advance-form": advanceOrder(secureOrder(el.dataset.order),Number(el.dataset.step),form);break;
     case "pause-form":
     case "resume-form": {
