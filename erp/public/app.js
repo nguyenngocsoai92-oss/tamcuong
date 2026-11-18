@@ -139,4 +139,4 @@ document.addEventListener('click',wrap(async e=>{
  }
  if(action==='line-new'){document.querySelector('#journal-lines').insertAdjacentHTML('beforeend',journalLine(document.querySelector('#journal-lines').children.length));return}
 }));
-wrap(async()=>{const result=await api('auth/me');user=result.user;csrf=result.csrf;await start()})().catch(()=>loginPage());
+(async()=>{try{const result=await api('auth/me');user=result.user;csrf=result.csrf;await start()}catch{loginPage()}})();
