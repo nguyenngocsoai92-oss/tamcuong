@@ -9,7 +9,7 @@ const DATA_DIR = path.resolve(process.env.ERP_DATA_DIR || path.join(ROOT,'.priva
 fs.mkdirSync(DATA_DIR,{recursive:true,mode:0o700});
 const db = new DatabaseSync(path.join(DATA_DIR,'tamcuong.sqlite'));
 db.exec('PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000');
-db.exec(\`
+db.exec(`
 CREATE TABLE IF NOT EXISTS companies(
  id TEXT PRIMARY KEY, name TEXT NOT NULL, tax_id TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS users(
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS journal_lines(
  memo TEXT, PRIMARY KEY(entry_id,line_no),
  CHECK(NOT (debit > 0 AND credit > 0)));
 CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
-\`);
+`);
 const now=()=>new Date().toISOString();
 const uid=()=>crypto.randomUUID();
 const cleanup=()=>db.prepare('DELETE FROM sessions WHERE expires_at<?').run(Date.now());
@@ -255,7 +255,7 @@ function resetTestData(confirm,actor){
  if(confirm!=='RESET-TEST-DATA')throw new Error('Thiếu xác nhận RESET-TEST-DATA');
  if(one("SELECT value FROM settings WHERE key='production_locked'")?.value==='1')throw new Error('Đã khóa xóa dữ liệu tại production');
  return transaction(()=>{
-  const counts={};for(const name of ['records','stock_moves','journal_entries','journal_lines','materials','accounts'])counts[name]=one(\`SELECT COUNT(*) AS n FROM \${name}\`).n;
+  const counts={};for(const name of ['records','stock_moves','journal_entries','journal_lines','materials','accounts'])counts[name]=one(`SELECT COUNT(*) AS n FROM ${name}`).n;
   run('DELETE FROM journal_lines');run('DELETE FROM journal_entries');
   run('DELETE FROM stock_moves');run('DELETE FROM materials');run('DELETE FROM accounts');run('DELETE FROM records');
   audit({id:actor},null,'system','reset','test_data_reset',null,counts);
