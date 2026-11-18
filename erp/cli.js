@@ -1,7 +1,7 @@
 'use strict';
 const fs=require('node:fs');
 const path=require('node:path');
-const crypto=require('node:crypto');
+const {backup}=require('node:sqlite');
 const readline=require('node:readline/promises');
 const {stdin,stdout}=require('node:process');
 const core=require('./db');
@@ -38,7 +38,7 @@ async function main(){
   const folder=path.resolve(process.env.ERP_BACKUP_DIR||path.join(core.DATA_DIR,'backups'));
   fs.mkdirSync(folder,{recursive:true,mode:0o700});
   const dest=path.join(folder,'tamcuong-'+new Date().toISOString().replace(/[:.]/g,'-')+'.sqlite');
-  await core.db.backup(dest);
+  await backup(core.db,dest);
   fs.chmodSync(dest,0o600);
   console.log('Đã tạo backup '+dest);return;
  }
@@ -51,7 +51,7 @@ async function main(){
   const backupDir=path.resolve(process.env.ERP_BACKUP_DIR||path.join(core.DATA_DIR,'backups'));
   fs.mkdirSync(backupDir,{recursive:true,mode:0o700});
   const backup=path.join(backupDir,'pre-reset-'+new Date().toISOString().replace(/[:.]/g,'-')+'.sqlite');
-  await core.db.backup(backup);fs.chmodSync(backup,0o600);
+  await backup(core.db,backup);fs.chmodSync(backup,0o600);
   const result=core.resetTestData(process.env.RESET_CONFIRM,'system');
   console.log('Đã backup '+backup);
   console.log('Đã làm rỗng dữ liệu nghiệp vụ, giữ người dùng/pháp nhân/nhật ký:',result);
