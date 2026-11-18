@@ -1,0 +1,18 @@
+{
+  "name": "tamcuong-erp",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Multi-company ERP foundation for manufacturing and accounting",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node erp/server.js",
+    "bootstrap": "node erp/cli.js bootstrap",
+    "backup": "node erp/cli.js backup",
+    "lock-production": "node erp/cli.js production-lock",
+    "reset-staging": "node erp/cli.js reset-test-data",
+    "test": "node --test erp/tests/*.test.js",
+    "check": "node --check erp/db.js && node --check erp/server.js && node --check erp/public/app.js && node --check erp/cli.js"
+  }
+}
