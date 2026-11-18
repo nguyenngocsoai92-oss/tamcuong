@@ -36,7 +36,7 @@ function requireUser(req,method){
 }
 function cookie(token,req,clear=false){
  const secure=(process.env.COOKIE_SECURE==='true'||String(req.headers['x-forwarded-proto']||'').toLowerCase()==='https');
- return \`\${COOKIE}=\${clear?'':encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=\${clear?0:28800}\${secure?'; Secure':''}\`;
+ return `${COOKIE}=${clear?'':encodeURIComponent(token)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${clear?0:28800}${secure?'; Secure':''}`;
 }
 const loginAttempts=new Map();
 function throttle(req,username){
@@ -96,7 +96,7 @@ function router(req,res,url,body,user){
   if(p.length===6&&p[5]==='status'&&method==='POST')return {row:core.transitionRecord(user,company,id,body.status,body.version)};
  }
  if(p[2]==='materials'){
-  if(method==='GET'&&p.length===3)return {rows:core.all(\`SELECT m.*,COALESCE((SELECT SUM(CASE WHEN s.direction='in' THEN s.quantity ELSE -s.quantity END) FROM stock_moves s WHERE s.material_id=m.id AND s.company_id=m.company_id),0) AS balance FROM materials m WHERE m.company_id=? ORDER BY m.sku\`,company)};
+  if(method==='GET'&&p.length===3)return {rows:core.all(`SELECT m.*,COALESCE((SELECT SUM(CASE WHEN s.direction='in' THEN s.quantity ELSE -s.quantity END) FROM stock_moves s WHERE s.material_id=m.id AND s.company_id=m.company_id),0) AS balance FROM materials m WHERE m.company_id=? ORDER BY m.sku`,company)};
   if(method==='POST'&&p.length===3)return {row:core.createMaterial(user,company,body)};
  }
  if(p[2]==='stock'){
@@ -110,7 +110,7 @@ function router(req,res,url,body,user){
  }
  if(p[2]==='journal'){
   core.requireRole(user,['super_admin','accountant']);
-  if(method==='GET'&&p.length===3)return {rows:core.all(\`SELECT j.*, (SELECT SUM(l.debit) FROM journal_lines l WHERE l.entry_id=j.id) AS total FROM journal_entries j WHERE j.company_id=? ORDER BY j.booked_on DESC,j.created_at DESC LIMIT 500\`,company)};
+  if(method==='GET'&&p.length===3)return {rows:core.all(`SELECT j.*, (SELECT SUM(l.debit) FROM journal_lines l WHERE l.entry_id=j.id) AS total FROM journal_entries j WHERE j.company_id=? ORDER BY j.booked_on DESC,j.created_at DESC LIMIT 500`,company)};
   if(method==='GET'&&p.length===4){
    const entry=core.one('SELECT * FROM journal_entries WHERE id=? AND company_id=?',p[3],company);
    if(!entry)throw core.httpError(404,'Chứng từ không tồn tại');
@@ -120,9 +120,9 @@ function router(req,res,url,body,user){
  }
  if(p[2]==='trial-balance'&&method==='GET'){
   core.requireRole(user,['super_admin','accountant']);
-  return {rows:core.all(\`SELECT a.code,a.name,COALESCE(SUM(l.debit),0) AS debit,COALESCE(SUM(l.credit),0) AS credit
+  return {rows:core.all(`SELECT a.code,a.name,COALESCE(SUM(l.debit),0) AS debit,COALESCE(SUM(l.credit),0) AS credit
     FROM accounts a LEFT JOIN journal_lines l ON l.account_id=a.id
-    WHERE a.company_id=? GROUP BY a.id ORDER BY a.code\`,company)};
+    WHERE a.company_id=? GROUP BY a.id ORDER BY a.code`,company)};
  }
  throw core.httpError(404,'API không tồn tại');
 }
@@ -151,5 +151,5 @@ const server=http.createServer(async(req,res)=>{
  const full=path.join(publicRoot,file);
  try{const bytes=fs.readFileSync(full);res.writeHead(200,{'Content-Type':MIME[path.extname(file)],'Cache-Control':'no-store'});res.end(req.method==='HEAD'?undefined:bytes);}catch(e){fail(res,e);}
 });
-if(require.main===module){server.listen(PORT,HOST,()=>console.log(\`Tam Cuong ERP listening on http://\${HOST}:\${PORT}\`));}
+if(require.main===module){server.listen(PORT,HOST,()=>console.log(`Tam Cuong ERP listening on http://${HOST}:${PORT}`));}
 module.exports={server};
